@@ -11,7 +11,10 @@ export const AdminPanel: React.FC = () => {
   const confirm = useConfirm();
   const location = useLocation();
 
-  if (!user || user.role !== 'admin') {
+  // Check if user is admin (by role OR username as fallback)
+  const isAdmin = user && (user.role === 'admin' || user.username === 'admin');
+
+  if (!isAdmin) {
     return (
       <div className="flex items-center justify-center h-full bg-slate-900 text-slate-300">
         <div className="text-center">
