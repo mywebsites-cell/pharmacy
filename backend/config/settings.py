@@ -105,6 +105,21 @@ DATABASES = {
     }
 }
 
+# If a single DATABASE_URL is provided (common in managed Postgres like Supabase),
+# use it to override defaults. Requires `dj-database-url` (we'll add to requirements).
+DATABASE_URL = config('DATABASE_URL', default=None)
+if DATABASE_URL:
+    try:
+        import dj_database_url
+
+        db_from_env = dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=not DEBUG)
+        DATABASES['default'].update(db_from_env)
+        DATABASES['default'].setdefault('ATOMIC_REQUESTS', True)
+        DATABASES['default'].setdefault('CONN_MAX_AGE', 600)
+    except Exception:
+        # If dj_database_url is not installed, ignore and fall back to individual env vars
+        pass
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -229,6 +244,7 @@ if config('USE_S3', default=False, cast=bool):
 
 # Security Settings for Production
 if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
