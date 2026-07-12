@@ -1,15 +1,9 @@
-databases:
-  - name: pharmacy-postgres
-    databaseName: pharmacy_db
-    user: pharmacy_user
-    plan: free
-
-  - name: pharmacy-redis
+services:
+  - type: redis
+    name: pharmacy-redis
     ipAllowList: []
     plan: free
-    type: redis
 
-services:
   - type: web
     name: pharmacy-django
     env: python
@@ -17,25 +11,15 @@ services:
     startCommand: "cd backend && daphne -b 0.0.0.0 -p $PORT config.asgi:application"
     envVars:
       - key: DB_NAME
-        fromDatabase:
-          name: pharmacy-postgres
-          property: database
+        value: "postgres"
       - key: DB_USER
-        fromDatabase:
-          name: pharmacy-postgres
-          property: user
+        value: "postgres.ftlvatwrxywdfedzywvw"
       - key: DB_PASSWORD
-        fromDatabase:
-          name: pharmacy-postgres
-          property: password
+        value: "JWTcypYyE0HKRtTx"
       - key: DB_HOST
-        fromDatabase:
-          name: pharmacy-postgres
-          property: host
+        value: "aws-0-us-east-1.pooler.supabase.com"
       - key: DB_PORT
-        fromDatabase:
-          name: pharmacy-postgres
-          property: port
+        value: "5432"
       - key: REDIS_URL
         fromService:
           type: redis
@@ -63,25 +47,15 @@ services:
     startCommand: "cd backend && celery -A config worker -l info"
     envVars:
       - key: DB_NAME
-        fromDatabase:
-          name: pharmacy-postgres
-          property: database
+        value: "postgres"
       - key: DB_USER
-        fromDatabase:
-          name: pharmacy-postgres
-          property: user
+        value: "postgres.ftlvatwrxywdfedzywvw"
       - key: DB_PASSWORD
-        fromDatabase:
-          name: pharmacy-postgres
-          property: password
+        value: "JWTcypYyE0HKRtTx"
       - key: DB_HOST
-        fromDatabase:
-          name: pharmacy-postgres
-          property: host
+        value: "aws-0-us-east-1.pooler.supabase.com"
       - key: DB_PORT
-        fromDatabase:
-          name: pharmacy-postgres
-          property: port
+        value: "5432"
       - key: REDIS_URL
         fromService:
           type: redis
