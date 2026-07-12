@@ -8,7 +8,7 @@ const resolveWebApiUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL as string | undefined;
   // In this workspace, localhost:8000 is a different service that misses OTP auth routes.
   if (!envUrl || envUrl.includes(':8000')) {
-    return 'http://127.0.0.1:8001/api/v1';
+    return 'https://pharmacy-django-fj01.onrender.com/api/v1';
   }
   return envUrl;
 };
@@ -545,7 +545,7 @@ const buildDesktopAccountingSummary = async () => {
 
 const createHttpApi = () => {
   const instance = axios.create({
-    baseURL: 'http://127.0.0.1:8001/api/v1',
+    baseURL: 'https://pharmacy-django-fj01.onrender.com/api/v1',
     headers: { 'Content-Type': 'application/json' },
   });
 
@@ -1116,7 +1116,7 @@ const desktopApi = {
 };
 
 const cloudAxios = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8001/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || 'https://pharmacy-django-fj01.onrender.com/api/v1',
   headers: { 'Content-Type': 'application/json' },
 });
 
