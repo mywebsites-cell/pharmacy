@@ -98,7 +98,7 @@ DATABASES = {
         'HOST': config('DB_HOST', default='localhost'),
         'PORT': config('DB_PORT', default='5432'),
         'ATOMIC_REQUESTS': True,
-        'CONN_MAX_AGE': 600,
+        'CONN_MAX_AGE': 0,
         'OPTIONS': {
             'options': '-c statement_timeout=10000 -c idle_in_transaction_session_timeout=15000'
         },
@@ -112,10 +112,12 @@ if DATABASE_URL:
     try:
         import dj_database_url
 
-        db_from_env = dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=not DEBUG)
+        # CONN_MAX_AGE=0 is required for Supabase transaction-mode pooler (port 6543)
+        # Persistent connections exhaust the 15-connection free tier limit
+        db_from_env = dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=not DEBUG)
         DATABASES['default'].update(db_from_env)
         DATABASES['default'].setdefault('ATOMIC_REQUESTS', True)
-        DATABASES['default'].setdefault('CONN_MAX_AGE', 600)
+        DATABASES['default']['CONN_MAX_AGE'] = 0
     except Exception:
         # If dj_database_url is not installed, ignore and fall back to individual env vars
         pass

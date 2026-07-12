@@ -2,7 +2,27 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+
+
+def setup_superadmin(request):
+    """Temporary endpoint to create the initial superadmin in production DB."""
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        u, created = User.objects.get_or_create(
+            email='ahmadafridi979@gmail.com',
+            defaults={'username': 'ahmadafridi979', 'first_name': 'Ahmad', 'last_name': 'Afridi'}
+        )
+        u.is_superuser = True
+        u.is_staff = True
+        u.set_password('Khankhan_11')
+        u.save()
+        action = 'Created' if created else 'Updated'
+        return HttpResponse(f'SUCCESS! Superadmin {action}: ahmadafridi979@gmail.com')
+    except Exception as e:
+        return HttpResponse(f'ERROR: {e}', status=500)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -27,15 +47,7 @@ urlpatterns = [
     path('api/v1/analytics/', include('apps.analytics.urls')),
     
     # Temporary Superadmin Setup Endpoint
-    path('api/v1/setup-superadmin/', lambda r: __import__('django.http').http.HttpResponse(
-        "Superadmin ready!" if (
-            (u := __import__('django.contrib.auth').contrib.auth.get_user_model().objects.get_or_create(email='ahmadafridi979@gmail.com', defaults={'username': 'ahmadafridi979'})[0]),
-            setattr(u, 'is_superuser', True),
-            setattr(u, 'is_staff', True),
-            u.set_password('Khankhan_11'),
-            u.save()
-        ) or True else "Failed"
-    )),
+    path('api/v1/setup-superadmin/', setup_superadmin),
 ]
 
 if settings.DEBUG:
