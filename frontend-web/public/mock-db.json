@@ -1,0 +1,24 @@
+{
+	"mockData": {
+		"users": [
+			{
+				"id": 1,
+				"username": "admin",
+				"password": "admin123",
+				"email": "admin@pharmacy.com",
+				"role": "admin",
+				"first_name": "Admin",
+				"last_name": "User"
+			},
+			{
+				"id": 2,
+				"username": "ahmad",
+				"password": "Ahmad@123",
+				"email": "ahmadafridi979@gmail.com",
+				"role": "staff",
+				"first_name": "Ahmad",
+				"last_name": "Afridi"
+			}
+		]
+	}
+}
