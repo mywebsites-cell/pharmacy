@@ -76,23 +76,25 @@ function AppLayout() {
       }
       const isActive = sub?.status === 'active' && (!sub?.expires_at || new Date(sub.expires_at) > new Date());
       const isPending = sub?.status === 'pending';
-      if (!isActive && !isPending && location.pathname !== '/subscribe') {
+      const isAdminUser = user?.role === 'admin';
+      if (!isActive && !isPending && !isAdminUser && location.pathname !== '/subscribe') {
         navigate('/subscribe');
       }
     }).catch((err) => {
+      const isAdminUser = user?.role === 'admin';
       if (err?.response?.status === 404) {
         setSubscription(null);
         setFeatures(null);
-        if (location.pathname !== '/subscribe') navigate('/subscribe');
+        if (!isAdminUser && location.pathname !== '/subscribe') navigate('/subscribe');
         return;
       }
       // If API unreachable, allow access if cached subscription is valid
       const cached = subscription;
       if (!cached || cached.status !== 'active' || (cached.expires_at && new Date(cached.expires_at) <= new Date())) {
-        if (location.pathname !== '/subscribe') navigate('/subscribe');
+        if (!isAdminUser && location.pathname !== '/subscribe') navigate('/subscribe');
       }
     });
-  }, [token, user]);
+  }, [token, user, navigate, location.pathname, subscription]);
 
   if (!token) {
     return (
