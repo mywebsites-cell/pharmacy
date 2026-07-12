@@ -252,19 +252,36 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
         EmailOTP.objects.create(email=email, otp=otp_code, purpose='STAFF_INVITATION', expires_at=expiry)
 
         try:
-            send_mail(
-                subject=f'You are invited to join {branch.pharmacy.name}',
-                message=(
-                    f'Hi {data["invited_name"]},\n\n'
-                    f'You have been invited to join {branch.name} ({branch.pharmacy.name}) as a staff member.\n\n'
-                    f'Your invitation code is: {otp_code}\n\n'
-                    f'This code expires in 30 minutes. Visit the app and go to Staff Activation to complete your registration.\n\n'
-                    f'If you did not expect this invitation, please ignore this email.'
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-                fail_silently=False,
-            )
+            from django.conf import settings
+            if getattr(settings, 'RESEND_API_KEY', None):
+                import resend
+                resend.api_key = settings.RESEND_API_KEY
+                resend.Emails.send({
+                    "from": "onboarding@resend.dev",
+                    "to": [email],
+                    "subject": f'You are invited to join {branch.pharmacy.name}',
+                    "text": (
+                        f'Hi {data["invited_name"]},\n\n'
+                        f'You have been invited to join {branch.name} ({branch.pharmacy.name}) as a staff member.\n\n'
+                        f'Your invitation code is: {otp_code}\n\n'
+                        f'This code expires in 30 minutes. Visit the app and go to Staff Activation to complete your registration.\n\n'
+                        f'If you did not expect this invitation, please ignore this email.'
+                    )
+                })
+            else:
+                send_mail(
+                    subject=f'You are invited to join {branch.pharmacy.name}',
+                    message=(
+                        f'Hi {data["invited_name"]},\n\n'
+                        f'You have been invited to join {branch.name} ({branch.pharmacy.name}) as a staff member.\n\n'
+                        f'Your invitation code is: {otp_code}\n\n'
+                        f'This code expires in 30 minutes. Visit the app and go to Staff Activation to complete your registration.\n\n'
+                        f'If you did not expect this invitation, please ignore this email.'
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
         except Exception as e:
             staff.delete()
             return Response({'error': f'Failed to send invitation email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

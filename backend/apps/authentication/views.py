@@ -227,7 +227,7 @@ class PasswordResetViewSet(viewsets.ViewSet):
             import resend
             resend.api_key = settings.RESEND_API_KEY
             resend.Emails.send({
-                "from": settings.DEFAULT_FROM_EMAIL,
+                "from": "onboarding@resend.dev",
                 "to": [email],
                 "subject": "PharmacyPro Password Reset OTP",
                 "html": f"<p>Your password reset verification code is: <strong>{otp_code}</strong>. It is valid for 10 minutes.</p>"
@@ -376,7 +376,7 @@ class RegisterViewSet(viewsets.ViewSet):
             import resend
             resend.api_key = settings.RESEND_API_KEY
             resend.Emails.send({
-                "from": settings.DEFAULT_FROM_EMAIL,
+                "from": "onboarding@resend.dev",
                 "to": [email],
                 "subject": "PharmacyPro Registration OTP",
                 "html": f"<p>Your registration verification code is: <strong>{otp_code}</strong>. It is valid for 10 minutes.</p>"

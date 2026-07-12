@@ -301,13 +301,24 @@ class UserViewSet(viewsets.ModelViewSet):
             expires_at=timezone.now() + timedelta(minutes=15)
         )
         
-        send_mail(
-            subject=f'OTP for Super Admin Promotion: {user.username}',
-            message=f'You have requested to promote user {user.username} ({user.email}) to Super Admin.\n\nYour OTP verification code is: {otp}\n\nThis code will expire in 15 minutes.',
-            from_email=None,
-            recipient_list=[security_email],
-            fail_silently=False,
-        )
+        from django.conf import settings
+        if getattr(settings, 'RESEND_API_KEY', None):
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": "onboarding@resend.dev",
+                "to": [security_email],
+                "subject": f'OTP for Super Admin Promotion: {user.username}',
+                "text": f'You have requested to promote user {user.username} ({user.email}) to Super Admin.\n\nYour OTP verification code is: {otp}\n\nThis code will expire in 15 minutes.'
+            })
+        else:
+            send_mail(
+                subject=f'OTP for Super Admin Promotion: {user.username}',
+                message=f'You have requested to promote user {user.username} ({user.email}) to Super Admin.\n\nYour OTP verification code is: {otp}\n\nThis code will expire in 15 minutes.',
+                from_email=None,
+                recipient_list=[security_email],
+                fail_silently=False,
+            )
         
         return Response({'detail': f'OTP sent successfully to {security_email}'})
 
@@ -373,13 +384,24 @@ class UserViewSet(viewsets.ModelViewSet):
             expires_at=timezone.now() + timedelta(minutes=15)
         )
         
-        send_mail(
-            subject=f'OTP for Super Admin Demotion: {user.username}',
-            message=f'You have requested to demote user {user.username} ({user.email}) from Super Admin.\n\nYour OTP verification code is: {otp}\n\nThis code will expire in 15 minutes.',
-            from_email=None,
-            recipient_list=[security_email],
-            fail_silently=False,
-        )
+        from django.conf import settings
+        if getattr(settings, 'RESEND_API_KEY', None):
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": "onboarding@resend.dev",
+                "to": [security_email],
+                "subject": f'OTP for Super Admin Demotion: {user.username}',
+                "text": f'You have requested to demote user {user.username} ({user.email}) from Super Admin.\n\nYour OTP verification code is: {otp}\n\nThis code will expire in 15 minutes.'
+            })
+        else:
+            send_mail(
+                subject=f'OTP for Super Admin Demotion: {user.username}',
+                message=f'You have requested to demote user {user.username} ({user.email}) from Super Admin.\n\nYour OTP verification code is: {otp}\n\nThis code will expire in 15 minutes.',
+                from_email=None,
+                recipient_list=[security_email],
+                fail_silently=False,
+            )
         
         return Response({'detail': f'OTP sent successfully to {security_email}'})
 
