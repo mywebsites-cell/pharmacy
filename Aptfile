@@ -1,0 +1,9 @@
+libjpeg-dev
+zlib1g-dev
+libtiff5-dev
+libfreetype6-dev
+liblcms2-dev
+libwebp-dev
+libopenjp2-7-dev
+pkg-config
+build-essential
