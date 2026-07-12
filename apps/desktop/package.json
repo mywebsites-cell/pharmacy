@@ -1,0 +1,93 @@
+{
+  "name": "pharmacypro-desktop",
+  "version": "1.0.0",
+  "description": "PharmacyPro Desktop Application",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run vite-dev\" \"npm run electron-dev\"",
+    "vite-dev": "vite",
+    "electron-dev": "wait-on tcp:5173 && cross-env NODE_ENV=development electron .",
+    "build": "tsc -p tsconfig-electron.json && vite build && electron-builder",
+    "build:win": "tsc -p tsconfig-electron.json && vite build && electron-builder --win",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.28.0",
+    "axios": "^1.16.1",
+    "better-sqlite3": "^9.4.3",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "electron-updater": "^6.1.8",
+    "lucide-react": "^1.16.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.75.0",
+    "react-router-dom": "^6.22.3",
+    "recharts": "^3.8.1",
+    "systeminformation": "^5.22.5",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.10",
+    "@types/node": "^20.12.7",
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "^18.2.25",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^29.3.1",
+    "electron-builder": "^24.13.3",
+    "playwright": "^1.61.0",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.10",
+    "vite-plugin-electron": "^0.28.6",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.pharmacypro.desktop",
+    "productName": "PharmacyPro",
+    "copyright": "Copyright © 2026 PharmacyPro",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "public/**"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "YOUR_GITHUB_REPO"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "extraResources": [
+      {
+        "from": "data/",
+        "to": "data/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
+  }
+}

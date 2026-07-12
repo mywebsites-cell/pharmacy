@@ -1,0 +1,117 @@
+SUBSCRIPTION FLOW FOR THE PHARMACY APP
+
+1. PURPOSE
+The subscription system controls which features a user can access in the pharmacy app.
+It is used to show plans, collect payment proof, activate access, and block access when a plan expires.
+
+2. HOW PLANS ARE CREATED
+Plans are defined on the admin/backend side.
+Each plan contains:
+- plan name
+- price
+- duration in days
+- description
+- feature flags
+- limits such as max medicines or max customers
+- whether the desktop app is included
+- whether the plan is marked as popular
+
+Example feature flags:
+- POS & Sales
+- Inventory Management
+- Transaction History
+- Dues & Credit
+- Customer Management
+- Analytics
+- Accounting
+- Purchase Management
+- Prescriptions
+- Desktop App access
+- API Access
+- Multi-branch support
+
+The admin can create different plans such as Trial, Monthly, Yearly, or Lifetime, depending on business rules.
+
+3. HOW THE USER SEES THE PLAN
+When the user opens the app:
+- the app checks the current subscription status
+- if the subscription is active and not expired, the user is taken into the app
+- if the subscription is expired or pending, the app shows the subscription page
+- if the subscription is about to expire, a banner can appear warning the user to renew
+
+The subscription page shows:
+- available plans
+- plan price
+- duration
+- included features
+- highlighted popular plan
+
+4. HOW THE USER BUYS A PLAN
+The purchase flow is:
+- user selects a plan
+- app shows payment account details
+- user sends payment manually using the provided bank or account details
+- user uploads a payment screenshot
+- user can add notes if needed
+- the app submits the payment proof to the backend
+
+After submission:
+- the subscription status becomes pending
+- the user waits for admin approval
+- once approved, the subscription becomes active
+
+5. WHAT HAPPENS AFTER PAYMENT
+After the admin approves the payment:
+- the subscription is activated
+- the app stores the subscription locally
+- the user can access the features allowed by the plan
+- the user remains active until the expiry date
+
+If the plan expires:
+- the app can show a warning banner
+- access may be blocked or limited based on the license rules
+- the user is asked to renew
+
+6. DESKTOP APP RULES
+The desktop app checks whether the current plan includes desktop access.
+If the plan does not include desktop access:
+- the user is blocked from using the desktop app
+- the app shows an upgrade message
+
+If the plan is expired:
+- the desktop app refuses access until renewal
+
+7. ADMIN WORKFLOW
+The admin side should support:
+- creating plans
+- editing plan details
+- enabling or disabling feature flags
+- setting limits
+- viewing payment submissions
+- approving or rejecting a subscription payment
+- extending or renewing an active subscription
+
+8. SUGGESTED USER JOURNEY
+A simple user journey should look like this:
+- user signs in
+- user is shown a plan screen if access is not active
+- user chooses a plan
+- user pays using the listed payment account
+- user uploads payment proof
+- admin reviews and approves the request
+- user gains access to the app
+- app warns the user before expiry
+- user renews when needed
+
+9. IMPORTANT BEHAVIOR
+- admin accounts can have lifetime access
+- some plans may limit medicine count or customer count
+- some plans may include the desktop app while others may not
+- subscription status should always be checked before giving access
+
+10. QUICK SUMMARY
+Plans are created on the admin side.
+Users see those plans in the app.
+Users choose a plan, pay manually, and upload proof.
+The admin approves the payment.
+The app activates access until the plan expires.

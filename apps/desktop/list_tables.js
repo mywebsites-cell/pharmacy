@@ -1,0 +1,1 @@
+const Database = require("better-sqlite3"); const db = new Database("C:/Users/ahmad/AppData/Roaming/pharmacypro-desktop/data/pharmacy.db"); try { const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all(); console.log("Tables:", tables); } catch (err) { console.error("Error listing tables:", err.message); } finally { db.close(); }

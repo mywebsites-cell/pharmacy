@@ -1,0 +1,12 @@
+FROM postgres:15-alpine
+
+ENV POSTGRES_DB=pharmacy_db
+ENV POSTGRES_USER=pharmacy_user
+ENV POSTGRES_PASSWORD=secure_password_change_in_production
+
+COPY docker/init-db.sql /docker-entrypoint-initdb.d/
+
+EXPOSE 5432
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=40s --retries=5 \
+    CMD pg_isready -U pharmacy_user -d pharmacy_db

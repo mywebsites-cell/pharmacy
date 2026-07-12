@@ -1,0 +1,130 @@
+version: '3.9'
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.postgres
+    container_name: pharmacy_postgres
+    environment:
+      POSTGRES_DB: pharmacy_db
+      POSTGRES_USER: pharmacy_user
+      POSTGRES_PASSWORD: secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pharmacy_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: pharmacy_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pharmacy_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: pharmacy_backend
+    environment:
+      DEBUG: 'False'
+      SECRET_KEY: ${SECRET_KEY}
+      DB_NAME: pharmacy_db
+      DB_USER: pharmacy_user
+      DB_PASSWORD: secure_password
+      DB_HOST: postgres
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    networks:
+      - pharmacy_network
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: pharmacy_celery_worker
+    environment:
+      DEBUG: 'False'
+      DB_NAME: pharmacy_db
+      DB_USER: pharmacy_user
+      DB_PASSWORD: secure_password
+      DB_HOST: postgres
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+      - backend
+    volumes:
+      - ./backend:/app
+    networks:
+      - pharmacy_network
+    command: celery -A config worker -l info
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: pharmacy_celery_beat
+    environment:
+      DEBUG: 'False'
+      DB_NAME: pharmacy_db
+      DB_USER: pharmacy_user
+      DB_PASSWORD: secure_password
+      DB_HOST: postgres
+      CELERY_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+      - backend
+    volumes:
+      - ./backend:/app
+    networks:
+      - pharmacy_network
+    command: celery -A config beat -l info
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: pharmacy_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - pharmacy_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+
+networks:
+  pharmacy_network:
+    driver: bridge

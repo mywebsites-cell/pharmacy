@@ -1,0 +1,7 @@
+﻿node_modules/
+.vite/
+dist/
+dist-electron/
+__pycache__/
+venv/
+release/

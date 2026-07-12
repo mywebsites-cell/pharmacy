@@ -1,0 +1,119 @@
+[
+  {
+    "route": "/",
+    "name": "Initial Load",
+    "loadMs": 3715,
+    "title": "PharmacyPro",
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\00_initial_load.png"
+  },
+  {
+    "route": "/",
+    "name": "01_dashboard",
+    "loadMs": 3046,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\01_dashboard.png",
+    "textLength": 207
+  },
+  {
+    "route": "/sales",
+    "name": "02_sales_pos",
+    "loadMs": 3034,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\02_sales_pos.png",
+    "textLength": 207
+  },
+  {
+    "route": "/transaction-history",
+    "name": "03_transaction_history",
+    "loadMs": 3028,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\03_transaction_history.png",
+    "textLength": 207
+  },
+  {
+    "route": "/sales-history",
+    "name": "04_sales_history",
+    "loadMs": 3026,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\04_sales_history.png",
+    "textLength": 207
+  },
+  {
+    "route": "/dues",
+    "name": "05_dues",
+    "loadMs": 3026,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\05_dues.png",
+    "textLength": 207
+  },
+  {
+    "route": "/inventory",
+    "name": "06_inventory",
+    "loadMs": 3028,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\06_inventory.png",
+    "textLength": 207
+  },
+  {
+    "route": "/customers",
+    "name": "07_customers",
+    "loadMs": 3031,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\07_customers.png",
+    "textLength": 207
+  },
+  {
+    "route": "/refunds",
+    "name": "08_refunds",
+    "loadMs": 3034,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\08_refunds.png",
+    "textLength": 207
+  },
+  {
+    "route": "/accounting",
+    "name": "09_accounting",
+    "loadMs": 3029,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\09_accounting.png",
+    "textLength": 207
+  },
+  {
+    "route": "/analytics",
+    "name": "10_analytics",
+    "loadMs": 3035,
+    "title": "PharmacyPro",
+    "hasError": false,
+    "hasSpinner": false,
+    "hasData": false,
+    "screenshot": "D:\\webs\\pharmacy app\\screenshots\\10_analytics.png",
+    "textLength": 207
+  }
+]
