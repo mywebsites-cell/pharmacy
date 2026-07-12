@@ -55,18 +55,21 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         }
         
         # Add role info and check subscription
+        # First, check if user is superuser/admin (take absolute precedence)
+        User = get_user_model()
+        typed_user = User.objects.get(pk=user.pk)
+        
+        # Check superuser flag directly on the fetched user object
+        if getattr(typed_user, 'is_superuser', False) or getattr(typed_user, 'is_staff', False):
+            data['user']['role'] = 'admin'
+            data['user']['is_staff'] = True
+            data['user']['is_superuser'] = True
+            data['user']['permissions'] = []
+            data['user']['staff_permissions'] = None
+            data['user']['is_staff_member'] = False
+            return data
+        
         try:
-            User = get_user_model()
-            typed_user = User.objects.get(pk=user.pk)
-            
-            # Check if user is superuser/staff first (take precedence)
-            if typed_user.is_superuser:
-                data['user']['role'] = 'admin'
-                data['user']['permissions'] = []
-                data['user']['staff_permissions'] = None
-                data['user']['is_staff_member'] = False
-                return data
-            
             user_role = UserRole.objects.get(user=typed_user, is_active=True)
             data['user']['role'] = typed_user.role
             data['user']['permissions'] = list(user_role.role.permissions.values_list('action', flat=True))
