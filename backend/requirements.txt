@@ -9,7 +9,7 @@ redis==5.0.1
 django-celery-beat==2.5.0
 django-celery-results==2.5.1
 python-decouple==3.8
-Pillow==10.1.0
+Pillow==10.2.0
 django-extensions==3.2.3
 drf-spectacular==0.26.5
 elasticsearch==8.11.0
@@ -28,7 +28,9 @@ twilio==8.10.0
 python-dotenv==1.0.0
 pydantic==2.5.2
 cryptography==41.0.7
+beautifulsoup4==4.12.2
 
 daphne==4.0.0
 channels==4.0.0
 channels-redis==4.1.0
+dj-database-url==1.0.0

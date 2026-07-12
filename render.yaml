@@ -30,6 +30,8 @@ services:
         value: "*"
       - key: DJANGO_SETTINGS_MODULE
         value: "config.settings"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
     plan: free
 
   - type: worker
@@ -52,4 +54,6 @@ services:
           property: connectionString
       - key: DJANGO_SETTINGS_MODULE
         value: "config.settings"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
     plan: free
