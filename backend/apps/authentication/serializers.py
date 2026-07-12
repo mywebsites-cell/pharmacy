@@ -58,6 +58,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         try:
             User = get_user_model()
             typed_user = User.objects.get(pk=user.pk)
+            
+            # Check if user is superuser/staff first (take precedence)
+            if typed_user.is_superuser:
+                data['user']['role'] = 'admin'
+                data['user']['permissions'] = []
+                data['user']['staff_permissions'] = None
+                data['user']['is_staff_member'] = False
+                return data
+            
             user_role = UserRole.objects.get(user=typed_user, is_active=True)
             data['user']['role'] = typed_user.role
             data['user']['permissions'] = list(user_role.role.permissions.values_list('action', flat=True))
