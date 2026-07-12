@@ -1,0 +1,97 @@
+databases:
+  - name: pharmacy-postgres
+    databaseName: pharmacy_db
+    user: pharmacy_user
+    plan: free
+
+  - name: pharmacy-redis
+    ipAllowList: []
+    plan: free
+    type: redis
+
+services:
+  - type: web
+    name: pharmacy-django
+    env: python
+    buildCommand: "cd backend && pip install -r requirements.txt && python manage.py migrate"
+    startCommand: "cd backend && daphne -b 0.0.0.0 -p $PORT config.asgi:application"
+    envVars:
+      - key: DB_NAME
+        fromDatabase:
+          name: pharmacy-postgres
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: pharmacy-postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: pharmacy-postgres
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: pharmacy-postgres
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: pharmacy-postgres
+          property: port
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: pharmacy-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: pharmacy-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "config.settings"
+    plan: free
+
+  - type: worker
+    name: pharmacy-celery
+    env: python
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && celery -A config worker -l info"
+    envVars:
+      - key: DB_NAME
+        fromDatabase:
+          name: pharmacy-postgres
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: pharmacy-postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: pharmacy-postgres
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: pharmacy-postgres
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: pharmacy-postgres
+          property: port
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: pharmacy-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: pharmacy-redis
+          property: connectionString
+      - key: DJANGO_SETTINGS_MODULE
+        value: "config.settings"
+    plan: free
