@@ -223,13 +223,23 @@ class PasswordResetViewSet(viewsets.ViewSet):
             expires_at=expiry
         )
 
-        send_mail(
-            subject='PharmacyPro Password Reset OTP',
-            message=f'Your password reset verification code is: {otp_code}. It is valid for 10 minutes.',
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False
-        )
+        if getattr(settings, 'RESEND_API_KEY', None):
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": settings.DEFAULT_FROM_EMAIL,
+                "to": [email],
+                "subject": "PharmacyPro Password Reset OTP",
+                "html": f"<p>Your password reset verification code is: <strong>{otp_code}</strong>. It is valid for 10 minutes.</p>"
+            })
+        else:
+            send_mail(
+                subject='PharmacyPro Password Reset OTP',
+                message=f'Your password reset verification code is: {otp_code}. It is valid for 10 minutes.',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False
+            )
 
         return Response({'status': 'If an account exists with this email, an OTP has been sent.'}, status=status.HTTP_200_OK)
         
@@ -361,14 +371,24 @@ class RegisterViewSet(viewsets.ViewSet):
             expires_at=expiry
         )
 
-        # Send email via Django send_mail
-        send_mail(
-            subject='PharmacyPro Registration OTP',
-            message=f'Your registration verification code is: {otp_code}. It is valid for 10 minutes.',
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-            fail_silently=False
-        )
+        # Send email
+        if getattr(settings, 'RESEND_API_KEY', None):
+            import resend
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": settings.DEFAULT_FROM_EMAIL,
+                "to": [email],
+                "subject": "PharmacyPro Registration OTP",
+                "html": f"<p>Your registration verification code is: <strong>{otp_code}</strong>. It is valid for 10 minutes.</p>"
+            })
+        else:
+            send_mail(
+                subject='PharmacyPro Registration OTP',
+                message=f'Your registration verification code is: {otp_code}. It is valid for 10 minutes.',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False
+            )
 
         return Response({'status': 'OTP sent successfully.'}, status=status.HTTP_200_OK)
 
