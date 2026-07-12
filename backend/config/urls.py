@@ -24,6 +24,25 @@ def setup_superadmin(request):
     except Exception as e:
         return HttpResponse(f'ERROR: {e}', status=500)
 
+
+def create_test_user(request):
+    """Temporary endpoint to create a regular test user in production DB."""
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        u, created = User.objects.get_or_create(
+            email='afridiahmad979@gmail.com',
+            defaults={'username': 'afridiahmad979', 'first_name': 'Afridi', 'last_name': 'Ahmad'}
+        )
+        u.is_superuser = False
+        u.is_staff = False
+        u.set_password('Khankhan_11')
+        u.save()
+        action = 'Created' if created else 'Updated'
+        return HttpResponse(f'SUCCESS! User {action}: afridiahmad979@gmail.com / Khankhan_11')
+    except Exception as e:
+        return HttpResponse(f'ERROR: {e}', status=500)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     
@@ -46,8 +65,9 @@ urlpatterns = [
     path('api/v1/notifications/', include('apps.notifications.urls')),
     path('api/v1/analytics/', include('apps.analytics.urls')),
     
-    # Temporary Superadmin Setup Endpoint
+    # Temporary Setup Endpoints
     path('api/v1/setup-superadmin/', setup_superadmin),
+    path('api/v1/create-test-user/', create_test_user),
 ]
 
 if settings.DEBUG:
