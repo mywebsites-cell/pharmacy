@@ -116,7 +116,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                         data['subscription_message'] = 'No active subscription found. Please subscribe to a plan.'
                     
         except UserRole.DoesNotExist:
-            data['user']['role'] = 'user'
+            # If no UserRole found but user is a superuser, they are still admin
+            typed_user_obj = self.user
+            is_super = getattr(typed_user_obj, 'is_superuser', False)
+            data['user']['role'] = 'admin' if is_super else 'user'
             data['user']['permissions'] = []
             data['user']['staff_permissions'] = None
             data['user']['is_staff_member'] = False
