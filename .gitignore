@@ -13,3 +13,6 @@ backend/node_modules/
 frontend-web/node_modules/
 apps/desktop/node_modules/
 apps/server/node_modules/
+.vercel
+.env*
+node_modules

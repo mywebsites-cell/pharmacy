@@ -60,7 +60,9 @@ function AppLayout() {
   // On mount / login, fetch subscription status for non-admin users
   useEffect(() => {
     if (!token) return;
-    if (user?.role === 'admin') {
+    // Check if user is admin (by role OR username as fallback)
+    const isAdminUser = user?.role === 'admin' || user?.username === 'admin';
+    if (isAdminUser) {
       setFeatures(ADMIN_FEATURES); // admin gets all features
       return;
     }
@@ -76,12 +78,12 @@ function AppLayout() {
       }
       const isActive = sub?.status === 'active' && (!sub?.expires_at || new Date(sub.expires_at) > new Date());
       const isPending = sub?.status === 'pending';
-      const isAdminUser = user?.role === 'admin';
+      const isAdminUser = user?.role === 'admin' || user?.username === 'admin';
       if (!isActive && !isPending && !isAdminUser && location.pathname !== '/subscribe') {
         navigate('/subscribe');
       }
     }).catch((err) => {
-      const isAdminUser = user?.role === 'admin';
+      const isAdminUser = user?.role === 'admin' || user?.username === 'admin';
       if (err?.response?.status === 404) {
         setSubscription(null);
         setFeatures(null);
@@ -109,7 +111,7 @@ function AppLayout() {
   }
 
   // Non-admin users without active subscription go to /subscribe
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.username === 'admin';
   const subActive = isAdmin || (subscription?.status === 'active' && (!subscription?.expires_at || new Date(subscription.expires_at) > new Date()));
 
   // Admins who land on /subscribe (from a previous redirect) should go to dashboard
