@@ -112,6 +112,11 @@ function AppLayout() {
   const isAdmin = user?.role === 'admin';
   const subActive = isAdmin || (subscription?.status === 'active' && (!subscription?.expires_at || new Date(subscription.expires_at) > new Date()));
 
+  // Admins who land on /subscribe (from a previous redirect) should go to dashboard
+  if (isAdmin && location.pathname === '/subscribe') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   if (!subActive && location.pathname !== '/subscribe') {
     return <Navigate to="/subscribe" replace />;
   }
