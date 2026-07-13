@@ -2,7 +2,7 @@
 // Electron Main Process
 // ============================================================
 
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, net as electronNet } from 'electron';
 import path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import * as net from 'net';
@@ -24,113 +24,9 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 // ============================================================
-// Django Local Server Management
+// No Local Server Needed (Cloud-First Mode)
 // ============================================================
 
-const DJANGO_PORT = 8001;
-let djangoProcess: ChildProcess | null = null;
-
-/** Find the venv python, fall back to system python. */
-const findPython = (): string => {
-  const candidates = [
-    path.join(__dirname, '../../../backend/venv/Scripts/python.exe'),   // Windows venv (from dist-electron/)
-    path.join(__dirname, '../../../backend/venv/bin/python3'),           // Unix venv
-    path.join(__dirname, '../../../backend/venv/bin/python'),
-    path.join(__dirname, '../../backend/venv/Scripts/python.exe'),      // fallback path
-  ];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
-  }
-  return 'python';  // fallback to system PATH
-};
-
-const getBackendDir = () => {
-  // Try workspace-root/backend first (dist-electron/ → apps/desktop/ → apps/ → workspace/)
-  const rootBackend = path.resolve(path.join(__dirname, '../../../backend'));
-  if (fs.existsSync(path.join(rootBackend, 'manage.py'))) return rootBackend;
-  // Fallback
-  return path.resolve(path.join(__dirname, '../../backend'));
-};
-const getManagePy  = () => path.join(getBackendDir(), 'manage.py');
-
-const getDjangoDataDir = () => {
-  const dir = path.join(app.getPath('userData'), 'db');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return dir;
-};
-
-const djangoEnv = () => ({
-  ...process.env,
-  PHARMACYPRO_DATA_DIR: getDjangoDataDir(),
-  DJANGO_SETTINGS_MODULE: 'config.settings_desktop',
-  PYTHONUNBUFFERED: '1',
-});
-
-/** Run a manage.py command synchronously and resolve on exit 0. */
-const runPythonManage = (args: string[]): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const proc = spawn(findPython(), [getManagePy(), ...args], {
-      env: djangoEnv(),
-      cwd: getBackendDir(),
-    });
-    proc.stdout?.on('data', (d: Buffer) => console.log('[manage]', String(d).trimEnd()));
-    proc.stderr?.on('data', (d: Buffer) => console.error('[manage]', String(d).trimEnd()));
-    proc.on('close', (code) =>
-      code === 0 ? resolve() : reject(new Error(`manage.py ${args[0]} exited ${code}`))
-    );
-    proc.on('error', reject);
-  });
-
-/** Poll TCP until the port accepts connections. */
-const waitForPort = (port: number, retries = 40): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const attempt = (n: number) => {
-      const sock = new net.Socket();
-      sock.setTimeout(1000);
-      const fail = () => {
-        sock.destroy();
-        if (n <= 0) { reject(new Error(`Django did not open port ${port}`)); return; }
-        setTimeout(() => attempt(n - 1), 1000);
-      };
-      sock.connect(port, '127.0.0.1', () => { sock.destroy(); resolve(); });
-      sock.on('error', fail);
-      sock.on('timeout', fail);
-    };
-    attempt(retries);
-  });
-
-/** Check if a TCP port is already listening (non-blocking). */
-const isPortListening = (port: number): Promise<boolean> =>
-  new Promise((resolve) => {
-    const sock = new net.Socket();
-    sock.setTimeout(800);
-    sock.connect(port, '127.0.0.1', () => { sock.destroy(); resolve(true); });
-    sock.on('error', () => { sock.destroy(); resolve(false); });
-    sock.on('timeout', () => { sock.destroy(); resolve(false); });
-  });
-
-/** Spawn Django runserver and wait until port 8001 is open. */
-const launchDjango = (): Promise<void> =>
-  new Promise(async (resolve, reject) => {
-    // If something is already on this port, don't spawn a second instance
-    const alreadyRunning = await isPortListening(DJANGO_PORT);
-    if (alreadyRunning) {
-      console.log(`[django] Port ${DJANGO_PORT} already listening — skipping spawn`);
-      resolve();
-      return;
-    }
-
-    djangoProcess = spawn(
-      findPython(),
-      [getManagePy(), 'runserver', `127.0.0.1:${DJANGO_PORT}`, '--noreload'],
-      { env: djangoEnv(), cwd: getBackendDir() }
-    );
-    djangoProcess.stdout?.on('data', (d: Buffer) => console.log('[django]', String(d).trimEnd()));
-    djangoProcess.stderr?.on('data', (d: Buffer) => console.error('[django]', String(d).trimEnd()));
-    djangoProcess.on('error', reject);
-    // Give it 500 ms to bind, then start polling
-    setTimeout(() => waitForPort(DJANGO_PORT).then(resolve).catch(reject), 500);
-  });
 
 const toOptionalText = (value: any) => {
   if (value == null) return undefined;
@@ -436,25 +332,18 @@ function createTray(): void {
 
 app.whenReady().then(async () => {
   try {
-    console.log('[main] Running Django migrations…');
-    await runPythonManage(['migrate', '--run-syncdb']);
-    console.log('[main] Ensuring desktop admin user…');
-    await runPythonManage(['ensure_desktop_admin']);
-    console.log(`[main] Starting Django on port ${DJANGO_PORT}…`);
-    await launchDjango();
-    console.log('[main] Django ready.');
+    initDatabase();
   } catch (err) {
-    console.error('[main] Django startup error (continuing anyway):', err);
+    console.error('SQLite init failed:', err);
   }
 
-  initDatabase();
   createWindow();
   createTray();
   startBackgroundService();
 
   // ── Silent background auto-updater (production only) ──────────────────────────
   if (!isDev) {
-    // Download silently in background without asking the user
+    // 1. Initialize SQLite completely locally (for offline POS storage)
     autoUpdater.autoDownload = true;
     // Install automatically the next time the user quits the app
     autoUpdater.autoInstallOnAppQuit = true;
@@ -482,14 +371,14 @@ app.whenReady().then(async () => {
 
     // First check on startup (delayed so the main window is fully loaded)
     setTimeout(() => { 
-      if (net.isOnline()) {
+      if (electronNet.isOnline()) {
         autoUpdater.checkForUpdates().catch(console.error); 
       }
     }, 8000);
 
     // Then re-check every 4 hours silently
     setInterval(() => { 
-      if (net.isOnline()) {
+      if (electronNet.isOnline()) {
         autoUpdater.checkForUpdates().catch(console.error); 
       }
     }, 4 * 60 * 60 * 1000);
@@ -497,10 +386,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', () => {
-  if (djangoProcess) {
-    djangoProcess.kill();
-    djangoProcess = null;
-  }
+  app.quit();
 });
 
 app.on('window-all-closed', () => {
@@ -518,157 +404,69 @@ app.on('activate', () => {
 // IPC Handlers
 // ============================================================
 
-// ---- Django: obtain a local JWT for the renderer --------------
-ipcMain.handle('django:get-token', async () => {
-  try {
-    const license = loadLicense();
-    return license?.access_token || null;
-  } catch (err) {
-    console.error('[django:get-token] failed:', err);
-    return null;
-  }
-});
-
-// ---- Auth: Login (local Django only — no external license server) -----------
+// ---- Auth: Login (Cloud-First Mode) -----------
 ipcMain.handle('auth:login', async (_event, { email, password }) => {
-  // Wait a moment for Django to be ready if it's still starting
-  const tryLogin = async (retries: number): Promise<any> => {
-    try {
-      // 1. PING CLOUD GATEKEEPER FIRST (Piracy Protection & Subscription Check)
-      // The cloud server verifies the TenantSubscription status.
-      const cloudResponse = await fetch(`${SERVER_URL}/api/v1/auth/login/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: email, password }),
-        signal: AbortSignal.timeout(8000),
-      });
-      
-      const cloudData = await cloudResponse.json() as any;
-      if (!cloudResponse.ok) {
-        return { success: false, error: cloudData.detail || cloudData.non_field_errors?.[0] || 'Invalid credentials or subscription expired.' };
-      }
-
-      // Extract details from cloud response
-      const userPayload = cloudData.user || {};
-      const cloudRole = cloudData.role || userPayload.role || 'pharmacist';
-      const pharmacyId = cloudData.pharmacy_id || userPayload.pharmacy_id;
-      const branchId = cloudData.branch_id || userPayload.branch_id;
-      const subStatus = cloudData.subscription_status || userPayload.subscription_status || 'active';
-      const subscriptionExpiresAt = cloudData.subscription_expires_at || userPayload.subscription_expires_at || null;
-
-      // 2. GET LOCAL TOKEN (For local SQLite operations)
-      const localResponse = await fetch(`http://127.0.0.1:${DJANGO_PORT}/api/v1/auth/login/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: email, password }),
-        signal: AbortSignal.timeout(8000),
-      });
-      
-      const localData = await localResponse.json() as any;
-      if (!localResponse.ok) {
-        return { success: false, error: 'Local server login failed.' };
-      }
-
-      const localAccess = localData.access;
-      if (!localAccess) {
-        return { success: false, error: 'Local server did not return an access token.' };
-      }
-
-      const subResponse = await fetch(`http://127.0.0.1:${DJANGO_PORT}/api/v1/admin/tenant-subscriptions/my_subscription/`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localAccess}`,
-        },
-        signal: AbortSignal.timeout(8000),
-      });
-
-      if (!subResponse.ok) {
-        if (subResponse.status === 404) {
-          return { success: false, code: 'NO_ACTIVE_SUBSCRIPTION', error: 'No active subscription found for this account.' };
-        }
-        return { success: false, error: 'Failed to verify subscription from local server.' };
-      }
-
-      const subscriptionData = await subResponse.json() as any;
-      const features = subscriptionData?.plan_details?.features_config || subscriptionData?.plan?.features_config || null;
-      const localSubStatus = subscriptionData?.status || null;
-      const localSubExpiresAt = subscriptionData?.expires_at || null;
-
-      const isActive = localSubStatus === 'active' && (!localSubExpiresAt || new Date(localSubExpiresAt) > new Date());
-      if (!isActive) {
-        return { success: false, code: 'SUBSCRIPTION_EXPIRED', error: 'Subscription is not active.' };
-      }
-
-      if (!features?.has_desktop_app) {
-        return { success: false, code: 'NO_DESKTOP_ACCESS', error: 'Your plan does not include desktop access.' };
-      }
-
-      return { 
-        success: true, 
-        access: localAccess,
-        refresh: localData.refresh,
-        cloudRole,
-        pharmacyId,
-        branchId,
-        subStatus: localSubStatus || subStatus,
-        subscriptionExpiresAt: localSubExpiresAt || subscriptionExpiresAt,
-        features,
-        firstName: userPayload.first_name || userPayload.username || email,
-        userId: userPayload.id,
-        userEmail: userPayload.email,
-        staffPermissions: userPayload.staff_permissions ?? null,
-        isStaffMember: userPayload.is_staff_member ?? false,
-      };
-    } catch (err: any) {
-      if (retries > 0) {
-        await new Promise(r => setTimeout(r, 1500));
-        return tryLogin(retries - 1);
-      }
-      return { success: false, error: 'Cannot reach Cloud Gatekeeper. Please check your internet connection.' };
+  try {
+    const response = await fetch(`${SERVER_URL}/api/v1/auth/login/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: email, password }),
+      signal: AbortSignal.timeout(15000),
+    });
+    
+    const data = await response.json() as any;
+    if (!response.ok) {
+      return { success: false, error: data.detail || data.non_field_errors?.[0] || 'Invalid credentials or subscription expired.' };
     }
-  };
 
-  const result = await tryLogin(3);
-  if (!result.success) return result;
+    const userPayload = data.user || {};
+    const features = data?.subscription_details?.plan_details?.features_config || data?.features || null;
+    const subStatus = data.subscription_status || userPayload.subscription_status || 'active';
+    const expiresAt = data.subscription_expires_at || userPayload.subscription_expires_at || null;
 
-  // Build the Real License based on Cloud Response
-  const localLicense: StoredLicense = {
-    user_id: Number(result.userId) || 1,
-    device_id: 0,
-    email: result.userEmail || (email.includes('@') ? email : `${email}@local`),
-    name: result.firstName,
-    role: result.cloudRole,
-    license_type: result.subStatus === 'active' ? 'MONTHLY' : 'SUSPENDED',
-    expires_at: result.subscriptionExpiresAt || null,
-    issued_at: new Date().toISOString(),
-    last_validation: new Date().toISOString(),
-    access_token: result.access,
-    refresh_token: result.refresh || '',
-    staff_permissions: result.staffPermissions,
-    is_staff_member: result.isStaffMember,
-  };
-  saveLicense(localLicense);
+    const isActive = subStatus === 'active' && (!expiresAt || new Date(expiresAt) > new Date());
+    if (!isActive) {
+      return { success: false, code: 'SUBSCRIPTION_EXPIRED', error: 'Subscription is not active.' };
+    }
 
-  return {
-    success: true,
-    user: {
-      id: Number(result.userId) || 1,
-      name: result.firstName,
-      email: result.userEmail || (email.includes('@') ? email : `${email}@local`),
-      role: result.cloudRole,
-      pharmacy_id: result.pharmacyId,
-      branch_id: result.branchId,
-      license_type: localLicense.license_type,
-      access_token: result.access,
-      subscription_status: result.subStatus,
-      subscription_expires_at: result.subscriptionExpiresAt,
-      staff_permissions: result.staffPermissions,
-      is_staff_member: result.isStaffMember,
-    },
-    features: result.features,
-    lockState: { locked: false, read_only: false },
-  };
+    // Save minimal cloud license info locally so the app remembers who is logged in
+    const localLicense: StoredLicense = {
+      user_id: Number(userPayload.id) || 1,
+      device_id: 0,
+      email: userPayload.email || email,
+      name: userPayload.first_name || userPayload.username || email,
+      role: data.role || userPayload.role || 'pharmacist',
+      license_type: subStatus === 'active' ? 'MONTHLY' : 'SUSPENDED',
+      expires_at: expiresAt,
+      issued_at: new Date().toISOString(),
+      access_token: data.access,
+      refresh_token: data.refresh || '',
+      last_validation: new Date().toISOString(),
+      staff_permissions: userPayload.staff_permissions ?? null,
+      is_staff_member: userPayload.is_staff_member ?? false,
+    };
+    saveLicense(localLicense);
+
+    return { 
+      success: true, 
+      access: data.access,
+      refresh: data.refresh,
+      cloudRole: data.role || userPayload.role || 'pharmacist',
+      pharmacyId: data.pharmacy_id || userPayload.pharmacy_id,
+      branchId: data.branch_id || userPayload.branch_id,
+      subStatus,
+      subscriptionExpiresAt: expiresAt,
+      features,
+      firstName: userPayload.first_name || userPayload.username || email,
+      userId: userPayload.id,
+      userEmail: userPayload.email,
+      staffPermissions: userPayload.staff_permissions ?? null,
+      isStaffMember: userPayload.is_staff_member ?? false,
+    };
+  } catch (err: any) {
+    console.error('Login failed:', err);
+    return { success: false, error: `Cannot reach Server (${SERVER_URL}). Please check your internet connection.` };
+  }
 });
 
 // ---- Auth: Logout ---------------------------------------------
@@ -677,42 +475,13 @@ ipcMain.handle('auth:logout', async () => {
   return { success: true };
 });
 
-// ---- Auth: Change Password (Cloud and Local Sync) -------------
+// ---- Auth: Change Password (Cloud Mode) -------------
 ipcMain.handle('auth:change-password', async (_event, { current_password, new_password }) => {
   const license = loadLicense();
   if (!license) return { success: false, error: 'No license' };
   
   try {
-    // 1. UPDATE CLOUD PASSWORD (must be online)
-    let cloudSuccess = false;
-    let cloudError = '';
-    try {
-      const cloudResponse = await fetch(`${SERVER_URL}/api/v1/auth/change-password/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${license.access_token}`
-        },
-        body: JSON.stringify({ current_password, new_password }),
-        signal: AbortSignal.timeout(8000),
-      });
-      
-      const cloudData = await cloudResponse.json() as any;
-      if (cloudResponse.ok) {
-        cloudSuccess = true;
-      } else {
-        cloudError = cloudData.detail || cloudData.error || 'Cloud password update failed.';
-      }
-    } catch (err) {
-      cloudError = 'Cloud server unreachable. Internet connection is required to change password.';
-    }
-    
-    if (!cloudSuccess) {
-      return { success: false, error: cloudError };
-    }
-    
-    // 2. UPDATE LOCAL PASSWORD
-    const localResponse = await fetch(`http://127.0.0.1:${DJANGO_PORT}/api/v1/auth/change-password/`, {
+    const cloudResponse = await fetch(`${SERVER_URL}/api/v1/auth/change-password/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -722,14 +491,14 @@ ipcMain.handle('auth:change-password', async (_event, { current_password, new_pa
       signal: AbortSignal.timeout(8000),
     });
     
-    if (localResponse.ok) {
+    if (cloudResponse.ok) {
       return { success: true };
     } else {
-      const localData = await localResponse.json() as any;
-      return { success: false, error: localData.detail || 'Local password update failed.' };
+      const cloudData = await cloudResponse.json() as any;
+      return { success: false, error: cloudData.detail || cloudData.error || 'Password update failed.' };
     }
   } catch (err: any) {
-    return { success: false, error: err.message || 'Error occurred while updating password.' };
+    return { success: false, error: 'Server unreachable. Internet connection is required to change password.' };
   }
 });
 

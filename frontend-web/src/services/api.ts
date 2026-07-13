@@ -1,9 +1,5 @@
 import axios from 'axios';
 
-// Check if running in Electron
-const IS_ELECTRON = !!(window as any).electronAPI;
-const USE_DESKTOP_BACKEND = IS_ELECTRON || window.location.port === '5173';
-
 const resolveWebApiUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL as string | undefined;
   // In this workspace, localhost:8000 is a different service that misses OTP auth routes.
@@ -13,9 +9,7 @@ const resolveWebApiUrl = () => {
   return envUrl;
 };
 
-const API_URL = USE_DESKTOP_BACKEND 
-  ? 'http://127.0.0.1:8001/api/v1'
-  : resolveWebApiUrl();
+const API_URL = resolveWebApiUrl();
 
 // ---- IPC helpers (desktop only) ----
 const ipc = (channel: string, data?: any) =>
