@@ -481,10 +481,18 @@ app.whenReady().then(async () => {
     });
 
     // First check on startup (delayed so the main window is fully loaded)
-    setTimeout(() => { autoUpdater.checkForUpdates().catch(console.error); }, 8000);
+    setTimeout(() => { 
+      if (net.isOnline()) {
+        autoUpdater.checkForUpdates().catch(console.error); 
+      }
+    }, 8000);
 
     // Then re-check every 4 hours silently
-    setInterval(() => { autoUpdater.checkForUpdates().catch(console.error); }, 4 * 60 * 60 * 1000);
+    setInterval(() => { 
+      if (net.isOnline()) {
+        autoUpdater.checkForUpdates().catch(console.error); 
+      }
+    }, 4 * 60 * 60 * 1000);
   }
 })
 
