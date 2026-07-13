@@ -62,7 +62,7 @@
       {
         "provider": "github",
         "owner": "mywebsites-cell",
-        "repo": "pharmacy",
+        "repo": "medicly-releases",
         "releaseType": "release"
       }
     ],

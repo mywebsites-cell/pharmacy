@@ -31,7 +31,7 @@ jobs:
       - name: Build & publish Windows installer
         working-directory: apps/desktop
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.MY_PAT_TOKEN }}
         run: npm run build:win -- --publish always
 
       - name: Upload installer as artifact (backup)
