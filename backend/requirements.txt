@@ -34,3 +34,4 @@ daphne==4.0.0
 channels==4.0.0
 channels-redis==4.1.0
 dj-database-url==1.0.0
+resend==2.32.2
