@@ -2,8 +2,14 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+
+
+def health_check(request):
+    """Keep-alive health check endpoint. Returns 200 so Render never cold-starts."""
+    return JsonResponse({"status": "ok", "service": "medicly-backend"})
+
 
 
 def setup_superadmin(request):
@@ -45,6 +51,9 @@ def create_test_user(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    # Health check (for keep-alive pings — prevents Render cold starts)
+    path('health/', health_check),
     
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
