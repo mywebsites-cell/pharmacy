@@ -3,7 +3,7 @@ import os
 import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings_desktop')
-os.environ.setdefault('PHARMACYPRO_DATA_DIR', os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'pharmacypro-desktop', 'db'))
+os.environ.setdefault('MEDICLY_DATA_DIR', os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'medicly-desktop', 'db'))
 
 django.setup()
 

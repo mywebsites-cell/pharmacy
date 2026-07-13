@@ -7,7 +7,7 @@ Data lives in the user's AppData folder next to the existing SQLite file.
 
 Usage:
   DJANGO_SETTINGS_MODULE=config.settings_desktop  (set by Electron main)
-  PHARMACYPRO_DATA_DIR=<path>                      (set by Electron main)
+  MEDICLY_DATA_DIR=<path>                      (set by Electron main)
 """
 
 import os
@@ -17,10 +17,10 @@ from .settings import *  # noqa: F401,F403
 # Data directory — passed by the Electron main process at startup
 # ---------------------------------------------------------------------------
 _DATA_DIR = os.environ.get(
-    'PHARMACYPRO_DATA_DIR',
+    'MEDICLY_DATA_DIR',
     os.path.join(
         os.environ.get('APPDATA', os.path.expanduser('~')),
-        'pharmacypro-desktop',
+        'medicly-desktop',
         'db',
     ),
 )

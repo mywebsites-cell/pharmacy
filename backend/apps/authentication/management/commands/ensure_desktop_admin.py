@@ -24,7 +24,7 @@ class Command(BaseCommand):
         if admin_user is None:
             admin_user = User.objects.create_superuser(
                 username='admin',
-                email='admin@pharmacypro.local',
+                email='admin@medicly.local',
                 password='admin123',
                 first_name='Admin',
             )
@@ -45,7 +45,7 @@ class Command(BaseCommand):
                 admin_user.is_active = True
                 updated_fields.append('is_active')
             if not admin_user.email:
-                admin_user.email = 'admin@pharmacypro.local'
+                admin_user.email = 'admin@medicly.local'
                 updated_fields.append('email')
             if updated_fields:
                 admin_user.save(update_fields=updated_fields)
@@ -60,13 +60,13 @@ class Command(BaseCommand):
         pharmacy = Pharmacy.all_objects.filter(owner=admin_user).order_by('created_at').first()
         if pharmacy is None:
             pharmacy = Pharmacy.objects.create(
-                name='PharmacyPro Desktop',
+                name='Medicly Desktop',
                 registration_number=f'DESKTOP-{suffix}-REG',
                 license_number=f'DESKTOP-{suffix}-LIC',
                 license_expiry=timezone.now().date() + timedelta(days=3650),
                 owner=admin_user,
                 phone_number='0000000000',
-                email=admin_user.email or 'admin@pharmacypro.local',
+                email=admin_user.email or 'admin@medicly.local',
                 address_line_1='Local Desktop Instance',
                 address_line_2='',
                 city='Local',

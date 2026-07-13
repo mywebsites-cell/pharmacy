@@ -205,7 +205,7 @@ export const Login: React.FC<LoginProps> = ({ initialMode = 'login' }) => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
             <span className="text-3xl">💊</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">PharmacyPro</h1>
+          <h1 className="text-3xl font-bold text-white">Medicly</h1>
           <p className="text-blue-200 mt-1">Complete Pharmacy Management System</p>
         </div>
 
@@ -580,7 +580,7 @@ export const Login: React.FC<LoginProps> = ({ initialMode = 'login' }) => {
         </div>
 
         <p className="text-center text-blue-200 text-sm mt-6">
-          © 2026 PharmacyPro. All rights reserved.
+          © 2026 Medicly. All rights reserved.
         </p>
       </div>
     </div>

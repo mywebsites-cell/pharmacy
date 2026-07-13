@@ -48,7 +48,7 @@ export default function StaffActivation() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-xl shadow-blue-500/30 mb-4 text-3xl">
             💊
           </div>
-          <h1 className="text-2xl font-bold text-white">PharmacyPro</h1>
+          <h1 className="text-2xl font-bold text-white">Medicly</h1>
           <p className="text-blue-300/70 text-sm mt-1">Staff Account Activation</p>
         </div>
 

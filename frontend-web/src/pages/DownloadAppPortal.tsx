@@ -35,7 +35,7 @@ const DownloadAppPortal: React.FC = () => {
             <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
               <span className="text-lg">💊</span>
             </div>
-            <span className="font-bold text-lg text-white">PharmacyPro</span>
+            <span className="font-bold text-lg text-white">Medicly</span>
           </div>
 
           {/* Nav Tabs */}
@@ -114,7 +114,7 @@ const DownloadAppPortal: React.FC = () => {
           </div>
 
           <h1 className="text-5xl font-black mb-4 bg-gradient-to-r from-white via-blue-100 to-cyan-200 bg-clip-text text-transparent leading-tight">
-            PharmacyPro Desktop
+            Medicly Desktop
           </h1>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
             All pharmacy operations have moved to the Desktop Application.
@@ -246,7 +246,7 @@ const DownloadAppPortal: React.FC = () => {
 
         {/* Footer Note */}
         <p className="text-center text-slate-600 text-xs mt-10">
-          Need help? Contact your administrator • © 2026 PharmacyPro
+          Need help? Contact your administrator • © 2026 Medicly
         </p>
       </div>
     </div>

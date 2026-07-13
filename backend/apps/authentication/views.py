@@ -229,12 +229,12 @@ class PasswordResetViewSet(viewsets.ViewSet):
             resend.Emails.send({
                 "from": "support@medicly.org",
                 "to": [email],
-                "subject": "PharmacyPro Password Reset OTP",
+                "subject": "Medicly Password Reset OTP",
                 "html": f"<p>Your password reset verification code is: <strong>{otp_code}</strong>. It is valid for 10 minutes.</p>"
             })
         else:
             send_mail(
-                subject='PharmacyPro Password Reset OTP',
+                subject='Medicly Password Reset OTP',
                 message=f'Your password reset verification code is: {otp_code}. It is valid for 10 minutes.',
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],
@@ -378,12 +378,12 @@ class RegisterViewSet(viewsets.ViewSet):
             resend.Emails.send({
                 "from": "support@medicly.org",
                 "to": [email],
-                "subject": "PharmacyPro Registration OTP",
+                "subject": "Medicly Registration OTP",
                 "html": f"<p>Your registration verification code is: <strong>{otp_code}</strong>. It is valid for 10 minutes.</p>"
             })
         else:
             send_mail(
-                subject='PharmacyPro Registration OTP',
+                subject='Medicly Registration OTP',
                 message=f'Your registration verification code is: {otp_code}. It is valid for 10 minutes.',
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],

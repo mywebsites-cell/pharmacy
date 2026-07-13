@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Test</h1>
+    <button onclick="testLogin()">Test Login</button>
+    <button onclick="testRegisterOtp()">Test Register OTP</button>
+    <div id="result"></div>
+    
+    <script>
+        const API_URL = 'https://pharmacy-django-fj01.onrender.com/api/v1';
+        
+        async function testLogin() {
+            try {
+                const resp = await fetch(`${API_URL}/auth/login/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                const data = await resp.json();
+                document.getElementById('result').innerHTML = `
+                    <h3>Login Response:</h3>
+                    <p>Status: ${resp.status}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (err) {
+                document.getElementById('result').innerHTML = `<p>Error: ${err.message}</p>`;
+            }
+        }
+        
+        async function testRegisterOtp() {
+            try {
+                const resp = await fetch(`${API_URL}/auth/register/send-otp/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: 'testuser123',
+                        email: 'testuser123@test.com',
+                        password: 'Test@1234',
+                        pharmacy_name: 'Test Pharmacy 123'
+                    })
+                });
+                const data = await resp.json();
+                document.getElementById('result').innerHTML = `
+                    <h3>Register OTP Response:</h3>
+                    <p>Status: ${resp.status}</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (err) {
+                document.getElementById('result').innerHTML = `<p>Error: ${err.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

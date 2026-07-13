@@ -108,7 +108,7 @@ export const Sidebar: React.FC = () => {
             {sidebarOpen && (
               <div className="min-w-0">
                 <span className="font-bold text-lg text-white truncate block">
-                  {showingAdminView ? 'Admin Panel' : 'PharmacyPro'}
+                  {showingAdminView ? 'Admin Panel' : 'Medicly'}
                 </span>
                 {/* Show branch name for staff members */}
                 {isStaffMember && user?.branch_name && !showingAdminView && (
@@ -165,7 +165,7 @@ export const Sidebar: React.FC = () => {
             {showingAdminView ? (
               <p className="text-xs text-slate-500 text-center">System Administration</p>
             ) : (
-              <p className="text-xs text-gray-500 text-center">v1.0.0 © 2026 PharmacyPro</p>
+              <p className="text-xs text-gray-500 text-center">v1.0.0 © 2026 Medicly</p>
             )}
           </div>
         )}

@@ -186,7 +186,7 @@ const SubscriptionPage: React.FC = () => {
           <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
             <span className="text-lg">💊</span>
           </div>
-          <span className="font-bold text-lg">PharmacyPro</span>
+          <span className="font-bold text-lg">Medicly</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-slate-400 text-sm">Signed in as <span className="text-white font-medium">{user?.username}</span></span>
@@ -201,7 +201,7 @@ const SubscriptionPage: React.FC = () => {
         <div className="max-w-5xl mx-auto px-6 py-16">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold mb-3">Choose a Subscription Plan</h1>
-            <p className="text-slate-400 text-lg">Select a plan and pay to activate your PharmacyPro account.</p>
+            <p className="text-slate-400 text-lg">Select a plan and pay to activate your Medicly account.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {plans.map((plan) => {

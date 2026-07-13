@@ -11,7 +11,7 @@ const LandingPage: React.FC = () => {
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
             <span className="text-xl">💊</span>
           </div>
-          <span className="text-xl font-bold tracking-tight">PharmacyPro</span>
+          <span className="text-xl font-bold tracking-tight">Medicly</span>
         </div>
         <div className="flex items-center gap-3">
           <Link
@@ -127,7 +127,7 @@ const LandingPage: React.FC = () => {
 
       {/* Footer */}
       <footer className="border-t border-white/10 py-8 text-center text-slate-500 text-sm">
-        © {new Date().getFullYear()} PharmacyPro. All rights reserved.
+        © {new Date().getFullYear()} Medicly. All rights reserved.
       </footer>
     </div>
   );
