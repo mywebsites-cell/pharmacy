@@ -372,12 +372,14 @@ app.on('second-instance', () => {
 // ---- Create Window ---------------------------------------------
 
 function createWindow(): void {
+  const iconPath = path.join(__dirname, '../public/icon.ico');
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 700,
     title: 'PharmacyPro',
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
