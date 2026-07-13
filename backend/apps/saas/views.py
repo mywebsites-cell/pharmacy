@@ -214,35 +214,57 @@ class UserViewSet(viewsets.ModelViewSet):
         if user == request.user:
             return Response({'detail': 'You cannot delete your own active account.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        from apps.pharmacy.models import Pharmacy
-        from apps.sales.models import Sale
+        from apps.pharmacy.models import Pharmacy, Branch, BranchStaff, BranchDevice
+        from apps.sales.models import Sale, Payment, Refund
         from apps.common.models import AuditLog
-        from apps.authentication.models import UserRole
+        from apps.authentication.models import UserRole, EmailOTP
+        from apps.saas.models import PaymentSubmission, TenantSubscription
 
+        import traceback
         try:
             with transaction.atomic():
-                # Purge all pharmacies tied to this user either by ownership or UserRole link.
-                # This cascades branches, inventory, sales, purchases, analytics, subscriptions, etc.
+                # 1. Find all pharmacies owned by this user (or linked via role)
                 role_pharmacy_ids = list(
                     UserRole.objects.filter(user=user, pharmacy__isnull=False).values_list('pharmacy_id', flat=True)
                 )
-                Pharmacy.all_objects.filter(owner=user).delete()
-                if role_pharmacy_ids:
-                    Pharmacy.all_objects.filter(id__in=role_pharmacy_ids).delete()
+                owned_pharmacy_ids = list(
+                    Pharmacy.all_objects.filter(owner=user).values_list('id', flat=True)
+                )
+                all_pharmacy_ids = list(set(list(owned_pharmacy_ids) + list(role_pharmacy_ids)))
 
-                # Remove rows where this user is a hard-protected owner/cashier reference.
+                if all_pharmacy_ids:
+                    branch_ids = list(Branch.objects.filter(pharmacy_id__in=all_pharmacy_ids).values_list('id', flat=True))
+
+                    # 2. Delete sales (Payment + Refund cascade from Sale automatically)
+                    Sale.objects.filter(branch_id__in=branch_ids).delete()
+
+                    # 3. Delete subscription records
+                    PaymentSubmission.objects.filter(pharmacy_id__in=all_pharmacy_ids).delete()
+                    TenantSubscription.objects.filter(pharmacy_id__in=all_pharmacy_ids).delete()
+
+                    # 4. Delete branch staff and devices
+                    BranchStaff.objects.filter(branch_id__in=branch_ids).delete()
+                    BranchDevice.objects.filter(branch_id__in=branch_ids).delete()
+
+                    # 5. Now delete pharmacy (cascade will handle branches and rest)
+                    Pharmacy.all_objects.filter(id__in=all_pharmacy_ids).delete()
+
+                # 6. Delete any sales where this user was cashier (outside their pharmacy)
                 Sale.objects.filter(cashier=user).delete()
 
-                # Remove audit trace for this account to satisfy full purge expectation.
+                # 7. Clean up auth records
+                UserRole.objects.filter(user=user).delete()
+                EmailOTP.objects.filter(email=user.email).delete()
                 AuditLog.all_objects.filter(user=user).delete()
 
-                # Finally hard-delete the user using raw SQL queryset delete.
-                # This bypasses Django collector issues with legacy django_admin_log user_id type mismatch.
+                # 8. Hard-delete the user
                 user_model = get_user_model()
                 user_model.objects.filter(pk=user.pk)._raw_delete(user_model.objects.db)
-        except ProtectedError:
+
+        except Exception as e:
+            traceback.print_exc()
             return Response(
-                {'detail': 'User has protected related records that could not be purged automatically.'},
+                {'detail': f'Deletion failed: {str(e)}'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
