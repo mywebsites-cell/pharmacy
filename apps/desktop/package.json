@@ -1,6 +1,6 @@
 {
   "name": "medicly-desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Medicly Desktop Application",
   "main": "dist-electron/main.js",
   "scripts": {

@@ -18,7 +18,7 @@ import { loadLicense, saveLicense, calculateLockState, clearLicense, StoredLicen
 import { startBackgroundService, stopBackgroundService } from './background-service';
 
 const isDev = process.env.NODE_ENV === 'development';
-const SERVER_URL = process.env.LICENSE_SERVER_URL || 'http://localhost:8000';
+const SERVER_URL = process.env.LICENSE_SERVER_URL || (isDev ? 'http://localhost:8000' : 'https://pharmacy-django-fj01.onrender.com');
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -378,7 +378,7 @@ function createWindow(): void {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'PharmacyPro',
+    title: 'Medicly',
     icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -419,12 +419,12 @@ function createTray(): void {
     tray = new Tray(icon);
 
     const contextMenu = Menu.buildFromTemplate([
-      { label: 'Open PharmacyPro', click: () => mainWindow?.show() },
+      { label: 'Open Medicly', click: () => mainWindow?.show() },
       { type: 'separator' },
       { label: 'Quit', click: () => { app.quit(); } },
     ]);
 
-    tray.setToolTip('PharmacyPro');
+    tray.setToolTip('Medicly');
     tray.setContextMenu(contextMenu);
     tray.on('double-click', () => mainWindow?.show());
   } catch (err) {

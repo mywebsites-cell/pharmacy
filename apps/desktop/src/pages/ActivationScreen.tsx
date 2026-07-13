@@ -379,7 +379,7 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl mb-4 shadow-2xl">
             <Shield className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">PharmacyPro</h1>
+          <h1 className="text-3xl font-bold text-white">Medicly</h1>
           <p className="text-slate-400 mt-1">Professional Pharmacy Management</p>
         </div>
         {children}
