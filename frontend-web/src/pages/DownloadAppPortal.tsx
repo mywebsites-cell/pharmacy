@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store';
-import { toast } from '../components/toast';
+
 import {
   Monitor, Download, CreditCard, Settings, LogOut,
   CheckCircle, Shield, Zap, Wifi, WifiOff, ArrowRight,
@@ -144,14 +144,15 @@ const DownloadAppPortal: React.FC = () => {
           <div className="relative">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-white mb-2">Download the Desktop App</h2>
-              <p className="text-slate-400">Available for Windows and macOS. Free with your active subscription.</p>
+              <p className="text-slate-400">Available for Windows. Free with your active subscription.</p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-xl mx-auto">
               {/* Windows */}
               <a
-                href="#"
-                onClick={(e) => { e.preventDefault(); toast.info('Contact your administrator for the Windows installer download link.'); }}
+                href="https://github.com/mywebsites-cell/pharmacy/releases/latest/download/Medicly-Setup-1.0.0.exe"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex-1 group relative overflow-hidden flex items-center gap-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-2xl px-6 py-5 transition-all shadow-xl shadow-blue-600/30 hover:shadow-blue-500/40 hover:scale-[1.02]"
               >
                 <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -162,29 +163,27 @@ const DownloadAppPortal: React.FC = () => {
                 <div className="text-left">
                   <div className="text-xs text-blue-200 font-medium">Download for</div>
                   <div className="text-lg font-bold text-white">Windows</div>
-                  <div className="text-xs text-blue-300">.exe installer</div>
+                  <div className="text-xs text-blue-300">.exe installer • ~80MB</div>
                 </div>
                 <ArrowRight className="w-5 h-5 text-blue-300 ml-auto group-hover:translate-x-1 transition-transform" />
               </a>
 
-              {/* macOS */}
-              <a
-                href="#"
-                onClick={(e) => { e.preventDefault(); toast.info('Contact your administrator for the macOS installer download link.'); }}
-                className="flex-1 group relative overflow-hidden flex items-center gap-4 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 rounded-2xl px-6 py-5 transition-all hover:scale-[1.02]"
+              {/* macOS - Coming Soon */}
+              <div
+                className="flex-1 group relative overflow-hidden flex items-center gap-4 bg-slate-800 border border-slate-700 rounded-2xl px-6 py-5 opacity-60 cursor-not-allowed"
               >
                 <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg viewBox="0 0 24 24" className="w-7 h-7 text-white fill-current">
-                    <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm-.5 14.5c-.3.5-.7.5-1 0l-3-5c-.3-.5-.1-1 .5-1h2V7c0-.6.4-1 1-1s1 .4 1 1v3.5h2c.6 0 .8.5.5 1l-3 5z" />
+                  <svg viewBox="0 0 814 1000" className="w-7 h-7 text-white fill-current">
+                    <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 663 0 541.8c0-207.5 135.4-317.3 269-317.3 71 0 130.1 46.4 174.9 46.4 42.8 0 109.4-49.6 190.5-49.6 30.8 0 108.2 2.6 168.9 80.6zm-165.8-154c31.6-37.6 54.2-90.1 54.2-142.6 0-7.1-.6-14.3-1.9-20.1-51.6 2-112.3 34.4-149.2 75.3-28.5 31.6-55.1 84.1-55.1 136.6 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 46.5 0 102.5-31 136.5-68.6z"/>
                   </svg>
                 </div>
                 <div className="text-left">
-                  <div className="text-xs text-slate-400 font-medium">Download for</div>
-                  <div className="text-lg font-bold text-white">macOS</div>
-                  <div className="text-xs text-slate-400">.dmg installer</div>
+                  <div className="text-xs text-slate-500 font-medium">Download for</div>
+                  <div className="text-lg font-bold text-slate-300">macOS</div>
+                  <div className="text-xs text-slate-500">Coming Soon</div>
                 </div>
-                <ArrowRight className="w-5 h-5 text-slate-400 ml-auto group-hover:translate-x-1 transition-transform" />
-              </a>
+                <span className="ml-auto text-xs bg-slate-700 text-slate-400 px-2 py-1 rounded-full">Soon</span>
+              </div>
             </div>
 
             {/* Install notes */}
