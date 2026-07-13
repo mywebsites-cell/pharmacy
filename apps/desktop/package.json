@@ -1,7 +1,7 @@
 {
-  "name": "pharmacypro-desktop",
+  "name": "medicly-desktop",
   "version": "1.0.0",
-  "description": "PharmacyPro Desktop Application",
+  "description": "Medicly Desktop Application",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently \"npm run vite-dev\" \"npm run electron-dev\"",
@@ -47,9 +47,9 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.pharmacypro.desktop",
-    "productName": "PharmacyPro",
-    "copyright": "Copyright © 2026 PharmacyPro",
+    "appId": "com.medicly.desktop",
+    "productName": "Medicly",
+    "copyright": "Copyright © 2026 Medicly",
     "directories": {
       "output": "release"
     },
