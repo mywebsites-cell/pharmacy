@@ -306,7 +306,7 @@ class UserViewSet(viewsets.ModelViewSet):
             import resend
             resend.api_key = settings.RESEND_API_KEY
             resend.Emails.send({
-                "from": "onboarding@resend.dev",
+                "from": "support@medicly.org",
                 "to": [security_email],
                 "subject": f'OTP for Super Admin Promotion: {user.username}',
                 "text": f'You have requested to promote user {user.username} ({user.email}) to Super Admin.\n\nYour OTP verification code is: {otp}\n\nThis code will expire in 15 minutes.'
@@ -389,7 +389,7 @@ class UserViewSet(viewsets.ModelViewSet):
             import resend
             resend.api_key = settings.RESEND_API_KEY
             resend.Emails.send({
-                "from": "onboarding@resend.dev",
+                "from": "support@medicly.org",
                 "to": [security_email],
                 "subject": f'OTP for Super Admin Demotion: {user.username}',
                 "text": f'You have requested to demote user {user.username} ({user.email}) from Super Admin.\n\nYour OTP verification code is: {otp}\n\nThis code will expire in 15 minutes.'

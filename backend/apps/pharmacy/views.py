@@ -257,7 +257,7 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
                 import resend
                 resend.api_key = settings.RESEND_API_KEY
                 resend.Emails.send({
-                    "from": "onboarding@resend.dev",
+                    "from": "support@medicly.org",
                     "to": [email],
                     "subject": f'You are invited to join {branch.pharmacy.name}',
                     "text": (
