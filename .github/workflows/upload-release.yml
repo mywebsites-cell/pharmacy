@@ -1,0 +1,42 @@
+name: Upload Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (e.g., v1.0.5)'
+        required: true
+        default: 'v1.0.5'
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check if EXE exists
+        run: |
+          if [ ! -f "apps/desktop/release/win-unpacked/Medicly.exe" ]; then
+            echo "Error: Medicly.exe not found at apps/desktop/release/win-unpacked/Medicly.exe"
+            exit 1
+          fi
+          
+      - name: Create release or upload to existing
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.release_tag }}
+          name: "${{ github.event.inputs.release_tag }} - Desktop App with FFmpeg Support"
+          body: |
+            Windows Desktop App with ffmpeg.dll bundled for video/media support and password input fix
+            
+            ### Features
+            - ✅ FFmpeg support bundled
+            - ✅ Cloud backend integration
+            - ✅ Password input caret fix
+            - ✅ Desktop app ready for distribution
+          files: apps/desktop/release/win-unpacked/Medicly.exe
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
