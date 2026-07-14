@@ -17,6 +17,19 @@ import { getDeviceFingerprint } from './device-fingerprint';
 import { loadLicense, saveLicense, calculateLockState, clearLicense, StoredLicense } from './license-manager';
 import { startBackgroundService, stopBackgroundService } from './background-service';
 
+// ============================================================
+// Global Error Handlers (Main Process)
+// ============================================================
+process.on('uncaughtException', (error) => {
+  console.error('[Main Process] Uncaught exception:', error.message || String(error));
+  console.error('[Main Process] Stack:', error.stack || 'N/A');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Main Process] Unhandled rejection:', reason instanceof Error ? reason.message : String(reason));
+  console.error('[Main Process] Stack:', reason instanceof Error ? reason.stack : 'N/A');
+});
+
 const isDev = process.env.NODE_ENV === 'development';
 const SERVER_URL = process.env.LICENSE_SERVER_URL || (isDev ? 'http://localhost:8000' : 'https://pharmacy-django-fj01.onrender.com');
 
@@ -308,6 +321,11 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // Forward renderer console messages to main process stdout for debugging
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    console.log(`[Renderer:${level}] ${message} (${sourceId}:${line})`);
+  });
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
