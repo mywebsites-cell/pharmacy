@@ -127,6 +127,9 @@ const validChannels = [
   'updater:update-available',
   'updater:download-progress',
   'updater:update-ready',
+
+  // Clear local license/session on logout or 401
+  'db:clear',
 ];
 
 contextBridge.exposeInMainWorld('electronAPI', {

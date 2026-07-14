@@ -1565,3 +1565,14 @@ ipcMain.handle('reporting:supplier-analytics', () => ({
 ipcMain.handle('reporting:sales-analytics', (_e, { days } = { days: 30 }) => ({
   success: true, data: reportingDB.getSalesAnalytics(days)
 }));
+
+// ---- Clear session (called on 401/logout) --------------------
+ipcMain.handle('db:clear', async () => {
+  try {
+    clearLicense();
+    return { success: true };
+  } catch (err) {
+    console.warn('[db:clear] error:', err);
+    return { success: false };
+  }
+});
