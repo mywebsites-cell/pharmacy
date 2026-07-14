@@ -8,7 +8,7 @@ interface Props {
 
 const api = (window as any).electronAPI;
 const IS_ELECTRON = !!api;
-const DJANGO_URL = 'http://127.0.0.1:8001';
+const DJANGO_URL = 'https://pharmacy-django-fj01.onrender.com';
 
 // Browser (non-Electron) fallback: calls the local Django server directly
 async function browserLogin(email: string, password: string) {
