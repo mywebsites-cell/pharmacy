@@ -63,7 +63,7 @@ function parseSheet(raw: string): { headers: string[]; rows: any[]; errors: stri
       return trimmed;
     }
 
-    return Math.trunc(numeric).toLocaleString('fullwide', { useGrouping: false });
+    return Math.trunc(numeric).toLocaleString('en-US', { useGrouping: false });
   };
 
   const rows = lines.slice(1).map((line, i) => {

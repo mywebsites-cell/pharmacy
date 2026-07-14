@@ -434,15 +434,15 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => {
+                    const selStart = e.target.selectionStart;
+                    const selEnd = e.target.selectionEnd;
                     const val = e.target.value;
                     setPassword(val);
-                    // Preserve caret/focus after state update
+                    // Restore cursor after React re-render (without calling focus() which causes jumping)
                     requestAnimationFrame(() => {
                       const el = passwordRef.current;
-                      if (el) {
-                        const pos = val.length;
-                        try { el.setSelectionRange(pos, pos); } catch {}
-                        el.focus();
+                      if (el && el === document.activeElement) {
+                        try { el.setSelectionRange(selStart, selEnd ?? selStart); } catch {}
                       }
                     });
                   }}

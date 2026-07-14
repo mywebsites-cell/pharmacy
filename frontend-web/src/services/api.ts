@@ -819,297 +819,334 @@ export const rankMedicineResults = (items: any[], query: string) => {
 
 const desktopApi = {
   get: async (url: string, config?: any) => {
+    console.log('[desktopApi.get]', url);
+    
     // Medicines
     if (url.includes('inventory/low-stock') || url.includes('low-stock')) {
-      const result = await ipc('medicines:get-low-stock');
-      const items = (result?.data || []).map(normMed);
-      return { data: { results: items, count: items.length } };
+      try {
+        const result = await ipc('medicines:get-low-stock');
+        const items = (result?.data || []).map(normMed);
+        return { data: { results: items, count: items.length } };
+      } catch (err) {
+        console.error('[desktopApi] medicines:get-low-stock failed:', err);
+        return { data: { results: [], count: 0 } };
+      }
     }
-    if (url.includes('inventory/expiring') || url.includes('expiring')) {
-      const result = await ipc('analytics:dashboard', config?.params || {});
-      const items = (result?.data?.expiring_items || []).map(normMed);
-      return { data: { results: items, count: items.length } };
+    if (url.includes('inventory/batches/expiring_soon') || url.includes('expiring')) {
+      try {
+        const result = await ipc('analytics:dashboard', config?.params || {});
+        const items = (result?.data?.expiring_items || []).map(normalizeExpiringItem);
+        return { data: { results: items, count: items.length } };
+      } catch (err) {
+        console.error('[desktopApi] expiring items failed:', err);
+        return { data: { results: [], count: 0 } };
+      }
     }
     if (url.includes('inventory/medicines')) {
-      const result = await ipc('medicines:get-all', config?.params || {});
-      const meds = (result?.data || []).map(normMed);
-      const search = config?.params?.search || getEmbeddedQueryParam(url, 'search');
-      const filtered = search
-        ? meds.filter((m: any) => {
-            const q = String(search).toLowerCase();
-            return [m.generic_name, m.brand_name, m.name, m.barcode, m.category, m.dosage_form]
-              .filter(Boolean)
-              .some((value: any) => String(value).toLowerCase().includes(q));
-          })
-        : meds;
-      const ranked = search ? rankMedicineResults(filtered, String(search)) : filtered;
-      return { data: { results: ranked, count: ranked.length } };
+      try {
+        const result = await ipc('medicines:get-all', config?.params || {});
+        const meds = (result?.data || []).map(normMed);
+        const search = config?.params?.search || getEmbeddedQueryParam(url, 'search');
+        const filtered = search
+          ? meds.filter((m: any) => {
+              const q = String(search).toLowerCase();
+              return [m.generic_name, m.brand_name, m.name, m.barcode, m.category, m.dosage_form]
+                .filter(Boolean)
+                .some((value: any) => String(value).toLowerCase().includes(q));
+            })
+          : meds;
+        const ranked = search ? rankMedicineResults(filtered, String(search)) : filtered;
+        return { data: { results: ranked, count: ranked.length } };
+      } catch (err) {
+        console.error('[desktopApi] medicines:get-all failed:', err);
+        return { data: { results: [], count: 0 } };
+      }
     }
     if (url.includes('inventory/inventory')) {
-      const result = await ipc('medicines:get-all', config?.params || {});
-      const meds = (result?.data || []).map(normMed);
-      const rows = buildDesktopInventoryRows(meds);
-      return { data: { results: rows, count: rows.length } };
+      try {
+        const result = await ipc('medicines:get-all', config?.params || {});
+        const meds = (result?.data || []).map(normMed);
+        const rows = buildDesktopInventoryRows(meds);
+        return { data: { results: rows, count: rows.length } };
+      } catch (err) {
+        console.error('[desktopApi] inventory rows failed:', err);
+        return { data: { results: [], count: 0 } };
+      }
     }
     // Analytics — all analytics endpoints map to one IPC call
     if (url.includes('analytics') || url.includes('kpis') || url.includes('daily-sales') || url.includes('inventory-valuation')) {
-      const result = await ipc('analytics:dashboard', config?.params || {});
-      const d = result?.data || {};
-      // analytics/kpis
-      if (url.includes('kpis')) {
-        return { data: {
-          total_revenue: d.total_revenue ?? 0,
-          total_sales: d.total_sales ?? 0,
-          total_customers: d.total_customers ?? 0,
-          gross_margin: d.gross_margin ?? 0,
-          monthly_profit: d.monthly_profit ?? 0,
-          low_stock_count: d.low_stock_count ?? 0,
-          expiring_soon_count: d.expiring_soon_count ?? 0,
-        }};
+      try {
+        const result = await ipc('analytics:dashboard', config?.params || {});
+        const d = result?.data || {};
+        // analytics/kpis
+        if (url.includes('kpis')) {
+          return { data: {
+            total_revenue: d.total_revenue ?? 0,
+            total_sales: d.total_sales ?? 0,
+            total_customers: d.total_customers ?? 0,
+            gross_margin: d.gross_margin ?? 0,
+            monthly_profit: d.monthly_profit ?? 0,
+            low_stock_count: d.low_stock_count ?? 0,
+            expiring_soon_count: d.expiring_soon_count ?? 0,
+          }};
+        }
+        // analytics/inventory-valuation
+        if (url.includes('inventory-valuation')) {
+          return { data: {
+            total_value: d.inventory_value ?? 0,
+            total_medicines: d.total_medicines ?? 0,
+          }};
+        }
+        // analytics/daily-sales
+        if (url.includes('daily-sales')) {
+          const rows = d.daily_sales || [];
+          return { data: { results: rows, count: rows.length } };
+        }
+        // analytics/dashboard
+        return { data: d };
+      } catch (err) {
+        console.error('[desktopApi] analytics failed:', err);
+        return { data: { results: [], count: 0, total_revenue: 0, total_sales: 0, total_customers: 0 } };
       }
-      // analytics/inventory-valuation
-      if (url.includes('inventory-valuation')) {
-        return { data: {
-          total_value: d.inventory_value ?? 0,
-          total_medicines: d.total_medicines ?? 0,
-        }};
-      }
-      // analytics/daily-sales
-      if (url.includes('daily-sales')) {
-        const rows = d.daily_sales || [];
-        return { data: { results: rows, count: rows.length } };
-      }
-      // analytics/dashboard
-      return { data: d };
     }
     // Sales
     if (url.includes('sales/sales')) {
-      const result = await ipc('sales:get-all', config?.params || {});
-      return { data: { results: result?.data || [], count: result?.data?.length || 0 } };
-    }
-    // Transactions (Unified History)
-    if (url.includes('transactions/history')) {
-      const result = await ipc('transactions:get-history', config?.params || {});
-      return { data: { results: result?.data || [], count: result?.data?.length || 0 } };
-    }
-    if (url.includes('transactions/stats')) {
-      const result = await ipc('transactions:get-stats', config?.params || {});
-      return { data: result?.data || {} };
+      try {
+        const result = await ipc('sales:get-all', config?.params || {});
+        return { data: { results: result?.data || [], count: result?.data?.length || 0 } };
+      } catch (err) {
+        console.error('[desktopApi] sales:get-all failed:', err);
+        return { data: { results: [], count: 0 } };
+      }
     }
     // Customers
     if (url.includes('customers')) {
-      const result = await ipc('customers:get-all', config?.params || {});
-      const customers = (result?.data || []).map(normCustomer);
-      const search = config?.params?.search || getEmbeddedQueryParam(url, 'search');
-      const filtered = search
-        ? customers.filter((customer: any) => {
-            const q = String(search).toLowerCase();
-            return [customer.name, customer.first_name, customer.last_name, customer.phone, customer.email]
-              .filter(Boolean)
-              .some((value: any) => String(value).toLowerCase().includes(q));
-          })
-        : customers;
-      return { data: { results: filtered, count: filtered.length } };
+      try {
+        const result = await ipc('customers:get-all', config?.params || {});
+        const customers = (result?.data || []).map(normCustomer);
+        const search = config?.params?.search || getEmbeddedQueryParam(url, 'search');
+        const filtered = search
+          ? customers.filter((customer: any) => {
+              const q = String(search).toLowerCase();
+              return [customer.name, customer.first_name, customer.last_name, customer.phone, customer.email]
+                .filter(Boolean)
+                .some((value: any) => String(value).toLowerCase().includes(q));
+            })
+          : customers;
+        return { data: { results: filtered, count: filtered.length } };
+      } catch (err) {
+        console.error('[desktopApi] customers:get-all failed:', err);
+        return { data: { results: [], count: 0 } };
+      }
     }
-    // Purchases
-    if (url.includes('purchases')) {
-      const result = await ipc('purchases:get-all', config?.params || {});
-      return { data: { results: result?.data || [], count: result?.data?.length || 0 } };
-    }
-    // Dues
+    // Dues — join with customers so DuesPage gets customer_name/phone; normalize status
     if (url.includes('dues')) {
-      const result = await ipc('dues:get-all');
-      return { data: { results: result?.data || [], count: result?.data?.length || 0 } };
+      try {
+        const [duesResult, custResult] = await Promise.all([
+          ipc('dues:get-all'),
+          ipc('customers:get-all'),
+        ]);
+        const custMap = new Map((custResult?.data || []).map((c: any) => [c.id, normCustomer(c)]));
+        const items = (duesResult?.data || []).map((d: any) => {
+          const c: any = custMap.get(d.customer_id) || {};
+          return {
+            ...d,
+            customer_name: c.name || `Customer #${d.customer_id}`,
+            customer_phone: c.phone || '',
+            date: d.created_at || d.due_date,
+            // SQLite uses 'unpaid'; DuesPage expects 'pending'
+            status: d.status === 'unpaid' ? 'pending' : d.status,
+            balance: d.balance ?? Math.max(0, (d.total_amount || 0) - (d.amount_paid || 0)),
+            payments: [],
+          };
+        });
+        const totalOutstanding = items
+          .filter((d: any) => d.status !== 'paid')
+          .reduce((sum: number, d: any) => sum + (Number(d.balance) || 0), 0);
+        return { data: { results: items, count: items.length, total_outstanding: totalOutstanding } };
+      } catch (err) {
+        console.error('[desktopApi] dues:get-all failed:', err);
+        return { data: { results: [], count: 0, total_outstanding: 0 } };
+      }
     }
     // Refunds / Returns
     if (url.includes('refunds') || url.includes('returns')) {
-      const result = await ipc('returns:get-all');
-      const items = (result?.data || []).map((r: any) => ({
-        ...r,
-        date: r.date || r.return_date || r.created_at,
-        total_amount: r.total_amount || r.refund_amount || 0,
-        sale_id: r.sale_id || r.original_sale_id,
-        reason: r.reason || r.return_reason,
-        items: r.items || [],
-      }));
-      return { data: { results: items, count: items.length } };
-    }
-    // Accounting
-    if (url.includes('accounting')) {
-      if (url.includes('summary')) {
-        return { data: await buildDesktopAccountingSummary() };
+      try {
+        const result = await ipc('returns:get-all');
+        const items = (result?.data || []).map((r: any) => ({
+          ...r,
+          date: r.date || r.return_date || r.created_at,
+          total_amount: r.total_amount || r.refund_amount || 0,
+          sale_id: r.sale_id || r.original_sale_id,
+          reason: r.reason || r.return_reason,
+          items: r.items || [],
+        }));
+        return { data: { results: items, count: items.length } };
+      } catch (err) {
+        console.error('[desktopApi] returns:get-all failed:', err);
+        return { data: { results: [], count: 0 } };
       }
-
-      const period = (config?.params?.period || getEmbeddedQueryParam(url, 'period') || 'monthly') as 'daily' | 'monthly' | 'annual';
-      return { data: await buildDesktopAccountingReport(period) };
+    }
+    // Transactions — history and stats
+    if (url.includes('transactions/history')) {
+      try {
+        const p = config?.params || {};
+        const result = await ipc('transactions:get-history', {
+          limit: p.limit ?? 200, offset: p.offset ?? 0,
+          search: p.search ?? '', typeFilter: p.typeFilter ?? 'all',
+          dateFrom: p.dateFrom ?? '', dateTo: p.dateTo ?? '',
+          sortOrder: p.sortOrder ?? 'desc',
+        });
+        const rows = result?.data || [];
+        return { data: { results: rows, count: rows.length } };
+      } catch (err) {
+        console.error('[desktopApi] transactions:get-history failed:', err);
+        return { data: { results: [], count: 0 } };
+      }
+    }
+    if (url.includes('transactions/stats')) {
+      try {
+        const p = config?.params || {};
+        const result = await ipc('transactions:get-stats', {
+          search: p.search ?? '', typeFilter: p.typeFilter ?? 'all',
+          dateFrom: p.dateFrom ?? '', dateTo: p.dateTo ?? '',
+        });
+        const d = result?.data || {};
+        return { data: { totalSales: d.totalSales ?? 0, totalPurchases: d.totalPurchases ?? 0, totalRefunds: d.totalRefunds ?? 0, totalAmount: d.totalAmount ?? 0 } };
+      } catch (err) {
+        console.error('[desktopApi] transactions:get-stats failed:', err);
+        return { data: { totalSales: 0, totalPurchases: 0, totalRefunds: 0, totalAmount: 0 } };
+      }
+    }
+    // Accounting P&L and Summary
+    if (url.includes('accounting/profit-loss') || url.includes('accounting/report')) {
+      try {
+        const period = config?.params?.period ?? 'monthly';
+        const result = await ipc('accounting:report', { period });
+        return { data: result?.data || {} };
+      } catch (err) {
+        console.error('[desktopApi] accounting:report failed:', err);
+        return { data: {} };
+      }
+    }
+    if (url.includes('accounting/summary')) {
+      try {
+        const result = await ipc('accounting:summary');
+        return { data: result?.data || {} };
+      } catch (err) {
+        console.error('[desktopApi] accounting:summary failed:', err);
+        return { data: {} };
+      }
     }
     console.warn('[desktop api] unhandled GET:', url);
     return { data: { results: [], count: 0 } };
   },
 
   post: async (url: string, data?: any) => {
-    if (url.includes('auth/login')) {
-      // auth is handled via IPC separately in AppShell
-      return { data: {} };
+    console.log('[desktopApi.post]', url);
+    
+    try {
+      if (url.includes('auth/login')) {
+        // auth is handled via IPC separately in AppShell
+        return { data: {} };
+      }
+      if (url.includes('inventory/medicines/bulk')) {
+        const result = await ipc('medicines:bulk-import', { items: data?.items || [] });
+        if (!result?.success) throw new Error(result?.error || 'Bulk import failed');
+        const payload = result?.data || {};
+        return {
+          data: {
+            ...payload,
+            results: (payload.results || []).map(normMed),
+          },
+        };
+      }
+      if (url.includes('inventory/medicines')) {
+        const result = await ipc('medicines:create', data || {});
+        if (!result?.success) throw new Error(result?.error || 'Failed to create medicine');
+        return { data: result?.data || { id: result?.id, ...data, name: data?.name || data?.generic_name } };
+      }
+      if (url.includes('sales/sales')) {
+        // Sales creation logic...
+        const invoiceNo = `INV-${Date.now()}`;
+        const subtotal = data?.total_amount ?? data?.subtotal ?? 0;
+        const pmRaw: string = data?.payment_method ?? 'cash';
+        const paymentMethod = pmRaw === 'due' ? 'cash' : pmRaw.toLowerCase();
+        const salePayload = {
+          invoice_no: invoiceNo,
+          invoice_date: new Date().toISOString().split('T')[0],
+          customer_id: data?.customer_id || undefined,
+          customer_name: data?.customer_name || undefined,
+          customer_phone: data?.customer_phone || undefined,
+          subtotal,
+          discount_amount: data?.discount_amount ?? 0,
+          discount_percent: data?.discount_percent ?? 0,
+          tax_amount: data?.tax_amount ?? 0,
+          total: data?.total_amount ?? data?.total ?? subtotal,
+          amount_paid: data?.is_due ? (parseFloat(data?.amount_paid_now) || 0) : subtotal,
+          payment_method: paymentMethod,
+          payment_status: data?.is_due ? 'pending' : 'paid',
+          notes: data?.notes || undefined,
+          created_by: 'admin',
+        };
+        const itemsPayload = (data?.items || []).map((item: any) => ({
+          medicine_id: item.medicine ?? item.medicine_id ?? item.id,
+          quantity: item.quantity_sold ?? item.quantity ?? 1,
+          unit_price: item.unit_price ?? item.selling_price ?? 0,
+          discount: item.discount ?? 0,
+          tax: item.tax ?? 0,
+        }));
+        const result = await ipc('sales:create', { sale: salePayload, items: itemsPayload });
+        if (!result?.success) throw new Error(result?.error || 'Failed to create sale');
+        return { data: result?.data || { id: result?.id } };
+      }
+
+      // Dues payment
+      if (url.includes('/dues/') && url.includes('/pay')) {
+        const dueId = url.match(/\/dues\/([^/]+)\//)?.[1];
+        if (!dueId) return { data: { success: false } };
+        const result = await ipc('dues:record-payment', { id: parseInt(dueId), amount: parseFloat(data?.amount || '0') });
+        if (!result?.success) throw new Error(result?.error || 'Payment recording failed');
+        return { data: { success: true, deleted: false, customer_name: data?.customer_name || '' } };
+      }
+      console.warn('[desktopApi.post] unhandled:', url);
+      return { data: { id: Date.now(), ...(data || {}) } };
+    } catch (err) {
+      console.error('[desktopApi.post] error:', url, err instanceof Error ? err.message : String(err));
+      throw err;
     }
-    if (url.includes('inventory/medicines/bulk')) {
-      const result = await ipc('medicines:bulk-import', { items: data?.items || [] });
-      if (!result?.success) throw new Error(result?.error || 'Bulk import failed');
-      const payload = result?.data || {};
-      return {
-        data: {
-          ...payload,
-          results: (payload.results || []).map(normMed),
-        },
-      };
-    }
-    if (url.includes('inventory/medicines')) {
-      const result = await ipc('medicines:create', data || {});
-      if (!result?.success) throw new Error(result?.error || 'Failed to create medicine');
-      return { data: result?.data || { id: result?.id, ...data, name: data?.name || data?.generic_name } };
-    }
-    if (url.includes('sales/sales')) {
-      // Map POS payload → SQLite schema
-      const invoiceNo = `INV-${Date.now()}`;
-      const subtotal = data?.total_amount ?? data?.subtotal ?? 0;
-      const pmRaw: string = data?.payment_method ?? 'cash';
-      const paymentMethod = pmRaw === 'due' ? 'cash' : pmRaw.toLowerCase();
-      const salePayload = {
-        invoice_no: invoiceNo,
-        invoice_date: new Date().toISOString().split('T')[0],
-        customer_id: data?.customer_id || undefined,
-        customer_name: data?.customer_name || undefined,
-        customer_phone: data?.customer_phone || undefined,
-        subtotal,
-        discount_amount: data?.discount_amount ?? 0,
-        discount_percent: data?.discount_percent ?? 0,
-        tax_amount: data?.tax_amount ?? 0,
-        total: data?.total_amount ?? data?.total ?? subtotal,
-        amount_paid: data?.is_due ? (parseFloat(data?.amount_paid_now) || 0) : subtotal,
-        payment_method: paymentMethod,
-        payment_status: data?.is_due ? 'pending' : 'paid',
-        notes: data?.notes || undefined,
-        created_by: 'admin',
-      };
-      const itemsPayload = (data?.items || []).map((item: any) => ({
-        medicine_id: item.medicine ?? item.medicine_id ?? item.id,
-        quantity: item.quantity_sold ?? item.quantity ?? 1,
-        unit_price: item.unit_price ?? item.selling_price ?? 0,
-        discount: item.discount ?? 0,
-        tax: item.tax ?? 0,
-      }));
-      const result = await ipc('sales:create', { sale: salePayload, items: itemsPayload });
-      if (!result?.success) throw new Error(result?.error || 'Sale creation failed');
-      return { data: { id: result?.id, invoice_no: invoiceNo, ...salePayload } };
-    }
-    if (url.includes('/dues/') && url.includes('/pay')) {
-      // dues/{id}/pay/ → dues:record-payment
-      const dueId = url.match(/\/dues\/(\d+)\//)?.[1];
-      const result = await ipc('dues:record-payment', { id: parseInt(dueId || '0'), amount: data?.amount || 0 });
-      return { data: { success: true, ...(data || {}) } };
-    }
-    if (url.includes('/dues/') || url.includes('/dues')) {
-      const result = await ipc('dues:create', {
-        customer_id: data?.customer_id,
-        sale_id: data?.sale_id,
-        total_amount: data?.total_amount || 0,
-        amount_paid: data?.amount_paid || 0,
-        notes: data?.notes,
-      });
-      return { data: { id: result?.id || Date.now(), ...(data || {}) } };
-    }
-    if (url.includes('customers') && url.includes('add_loyalty_points')) {
-      // stub — loyalty points not tracked locally yet
-      return { data: { success: true } };
-    }
-    if (url.includes('customers')) {
-      const payload = {
-        ...data,
-        name: data?.name || [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim(),
-      };
-      const result = await ipc('customers:create', payload);
-      if (!result?.success) throw new Error(result?.error || 'Failed to create customer');
-      return { data: { id: result?.id, ...normCustomer(payload) } };
-    }
-    if (url.includes('purchases')) {
-      // PurchasesPage sends: { supplier_name, total_cost, items: [{ medicine, quantity_purchased, cost_per_unit }] }
-      const invoiceNo = `PO-${Date.now()}`;
-      const subtotal = data?.total_cost ?? data?.subtotal ?? 0;
-      const purchasePayload = {
-        invoice_no: invoiceNo,
-        invoice_date: new Date().toISOString().split('T')[0],
-        supplier_name: data?.supplier_name || data?.supplier || '',
-        subtotal,
-        total: subtotal,
-        amount_paid: subtotal,
-        payment_method: 'cash',
-        payment_status: 'paid',
-        notes: data?.notes || '',
-        created_by: 'admin',
-      };
-      const itemsPayload = (data?.items || []).map((item: any) => ({
-        medicine_id: item.medicine ?? item.medicine_id ?? item.id ?? null,
-        medicine_name: item.medicine_name || item.generic_name || item.name || '',
-        quantity: item.quantity_purchased ?? item.quantity ?? 0,
-        unit_price: item.cost_per_unit ?? item.purchase_price ?? item.unit_price ?? 0,
-        expiry_date: item.expiry_date || null,
-      }));
-      const result = await ipc('purchases:create', { purchase: purchasePayload, items: itemsPayload });
-      if (!result?.success) throw new Error(result?.error || 'Failed to create purchase');
-      return { data: { id: result?.id, ...data } };
-    }
-    if (url.includes('refunds')) {
-      const refundedItems = (data?.items || []).filter((item: any) => (item.quantity_returned ?? item.quantity ?? 0) > 0);
-      const payload = {
-        original_sale_id: data?.sale_id,
-        return_invoice_no: `RET-${Date.now()}`,
-        return_reason: data?.reason || 'Customer return',
-        items_returned: refundedItems.reduce((sum: number, item: any) => sum + (item.quantity_returned ?? item.quantity ?? 0), 0),
-        refund_amount: data?.total_amount || 0,
-        notes: data?.notes || '',
-        created_by: 'admin',
-        items: refundedItems.map((item: any) => ({
-          medicine_id: typeof item.medicine === 'number' ? item.medicine : item.medicine?.id ?? item.medicine_id ?? null,
-          medicine_name: item.medicine?.generic_name || item.medicine?.name || item.medicine_name || item.generic_name || item.name || '',
-          quantity_returned: item.quantity_returned ?? item.quantity ?? 0,
-          unit_price: item.unit_price ?? 0,
-        })),
-      };
-      const result = await ipc('returns:create', payload);
-      if (!result?.success) throw new Error(result?.error || 'Failed to create refund');
-      return { data: { id: result?.id, ...data } };
-    }
-    console.warn('[desktop api] unhandled POST:', url);
-    return { data: {} };
   },
 
-  put: async (url: string, data?: any) => {
-    const id = url.match(/\/(\d+)\/?$/)?.[1];
-    if (url.includes('inventory/medicines') && id) {
-      const result = await ipc('medicines:update', { id: parseInt(id), ...data });
-      if (!result?.success) throw new Error(result?.error || 'Failed to update medicine');
-      return { data: result?.data || { ...data, id: parseInt(id) } };
+  put: (url: string, data?: any) => {
+    try {
+      if (url.includes('inventory/medicines')) {
+        return ipc('medicines:update', { id: getEntityId(data?.id), ...data });
+      }
+      const putId = url.match(/\/(\d+)\/?$/)?.[1];
+      if (url.includes('customers') && putId) {
+        return ipc('customers:update', { id: parseInt(putId), data }).then((r: any) => ({ data: r?.data || data }));
+      }
+      console.warn('[desktop api] unhandled PUT:', url);
+      return Promise.resolve({ data: data || {} });
+    } catch (err) {
+      console.error('[desktopApi.put] error:', url, err);
+      return Promise.reject(err);
     }
-    if (url.includes('customers') && id) {
-      const payload = {
-        ...data,
-        name: data?.name || [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim(),
-      };
-      const result = await ipc('customers:update', { id: parseInt(id), data: payload });
-      return { data: result?.data || normCustomer({ id: parseInt(id), ...payload }) };
-    }
-    console.warn('[desktop api] unhandled PUT:', url);
-    return { data: data || {} };
   },
 
   delete: async (url: string) => {
-    const id = url.match(/\/(\d+)\/?$/)?.[1];
-    if (url.includes('inventory/medicines') && id) {
-      await ipc('medicines:delete', parseInt(id));
+    try {
+      const id = url.match(/\/(\d+)\/?$/)?.[1];
+      if (url.includes('inventory/medicines') && id) {
+        await ipc('medicines:delete', parseInt(id));
+        return { data: null };
+      }
+      console.warn('[desktop api] unhandled DELETE:', url);
       return { data: null };
+    } catch (err) {
+      console.error('[desktopApi.delete] error:', url, err);
+      throw err;
     }
-    console.warn('[desktop api] unhandled DELETE:', url);
-    return { data: null };
   },
 
   interceptors: { request: { use: () => {} } },
