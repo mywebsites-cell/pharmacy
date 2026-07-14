@@ -3,6 +3,9 @@ import axios from 'axios';
 // ---- Detect if running in Electron (desktop app) ----
 const IS_ELECTRON = !!(window as any).electronAPI;
 
+// ---- Use local desktop backend (browser mode accessing local server) ----
+const USE_DESKTOP_BACKEND = false; // false = use cloud backend, true = use local server
+
 const resolveWebApiUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL as string | undefined;
   // In this workspace, localhost:8000 is a different service that misses OTP auth routes.
