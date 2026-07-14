@@ -93,6 +93,14 @@
           "**/*"
         ]
       }
+      ,
+      {
+        "from": "extra/",
+        "to": ".",
+        "filter": [
+          "ffmpeg.dll"
+        ]
+      }
     ]
   }
 }

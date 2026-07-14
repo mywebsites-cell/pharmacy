@@ -20,6 +20,22 @@ import { startBackgroundService, stopBackgroundService } from './background-serv
 const isDev = process.env.NODE_ENV === 'development';
 const SERVER_URL = process.env.LICENSE_SERVER_URL || (isDev ? 'http://localhost:8000' : 'https://pharmacy-django-fj01.onrender.com');
 
+// Ensure Electron knows where to find ffmpeg when bundled.
+// In production builds ffmpeg.dll will be placed in the resources root via `extraResources`.
+if (!isDev) {
+  try {
+    const ffmpegPath = path.join(process.resourcesPath, 'ffmpeg.dll');
+    if (fs.existsSync(ffmpegPath)) {
+      app.commandLine.appendSwitch('ffmpeg-path', ffmpegPath);
+      console.log('[FFmpeg] Loaded ffmpeg from', ffmpegPath);
+    } else {
+      console.warn('[FFmpeg] ffmpeg.dll not found at', ffmpegPath);
+    }
+  } catch (err) {
+    console.warn('[FFmpeg] error setting ffmpeg path', err);
+  }
+}
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
