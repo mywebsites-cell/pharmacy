@@ -53,7 +53,7 @@
     "productName": "Medicly",
     "copyright": "Copyright © 2026 Medicly",
     "directories": {
-      "output": "release"
+      "output": "release2"
     },
     "files": [
       "dist/**",
