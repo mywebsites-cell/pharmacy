@@ -160,6 +160,19 @@ function AppLayout() {
     return <DownloadAppPortal />;
   }
 
+  // Block rendering of main app until web app status is loaded
+  // This ensures that if web app is disabled, users are redirected before seeing the dashboard
+  if (!webAppStatusLoaded && !isAdmin) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading application settings...</p>
+        </div>
+      </div>
+    );
+  }
+
   const isSuperAdminView = location.pathname.startsWith('/admin') && user?.role === 'admin';
 
   return (
