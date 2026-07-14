@@ -210,6 +210,7 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { setUser, setLockState } = useLicenseStore();
+  const passwordRef = useRef<HTMLInputElement | null>(null);
 
   // Forgot password shared state
   const [fpEmail, setFpEmail] = useState('');
@@ -429,9 +430,22 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
               </div>
               <div className="relative">
                 <input
+                  ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPassword(val);
+                    // Preserve caret/focus after state update
+                    requestAnimationFrame(() => {
+                      const el = passwordRef.current;
+                      if (el) {
+                        const pos = val.length;
+                        try { el.setSelectionRange(pos, pos); } catch {}
+                        el.focus();
+                      }
+                    });
+                  }}
                   required
                   disabled={loading}
                   className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition pr-12"
