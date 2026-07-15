@@ -271,7 +271,24 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
         return;
       }
 
-      setUser({ ...result.user, features: result.features ?? undefined });
+      // auth:login (Electron IPC) returns flat fields, not a nested `user` object —
+      // build the AppUser shape here. browserLogin() already returns `result.user` directly.
+      const builtUser = IS_ELECTRON
+        ? {
+            id: Number(result.userId) || 1,
+            name: result.firstName || result.userEmail || email,
+            email: result.userEmail || email,
+            role: result.cloudRole || 'pharmacist',
+            license_type: 'MONTHLY' as const,
+            access_token: result.access,
+            subscription_status: result.subStatus,
+            subscription_expires_at: result.subscriptionExpiresAt,
+            staff_permissions: result.staffPermissions ?? null,
+            is_staff_member: !!result.isStaffMember,
+          }
+        : result.user;
+
+      setUser({ ...builtUser, features: result.features ?? undefined });
       setLockState(result.lockState || { locked: false, read_only: false });
       onSuccess();
     } catch {

@@ -1109,6 +1109,66 @@ const desktopApi = {
         if (!result?.success) throw new Error(result?.error || 'Payment recording failed');
         return { data: { success: true, deleted: false, customer_name: data?.customer_name || '' } };
       }
+      // Dues — create a new due record (credit sale from POS)
+      if (url.includes('/dues')) {
+        const result = await ipc('dues:create', {
+          customer_id: data?.customer_id,
+          sale_id: data?.sale_id,
+          total_amount: data?.total_amount,
+          amount_paid: data?.amount_paid ?? 0,
+          due_date: data?.due_date,
+          notes: data?.notes,
+        });
+        if (!result?.success) throw new Error(result?.error || 'Failed to create due record');
+        return { data: result?.data || { id: result?.id, ...data } };
+      }
+      // Purchases — record a stock purchase (from Inventory or Purchases page)
+      if (url.includes('purchases')) {
+        const invoiceNo = `PO-${Date.now()}`;
+        const total = data?.total_cost ?? data?.total ?? 0;
+        const purchasePayload = {
+          invoice_no: invoiceNo,
+          invoice_date: new Date().toISOString().split('T')[0],
+          supplier_name: data?.supplier_name || 'Unknown Supplier',
+          subtotal: total,
+          total,
+          amount_paid: data?.amount_paid ?? total,
+          payment_method: data?.payment_method || 'cash',
+          notes: data?.notes || undefined,
+          created_by: 'admin',
+        };
+        const itemsPayload = (data?.items || []).map((item: any) => ({
+          medicine_id: item.medicine ?? item.medicine_id ?? item.id,
+          medicine_name: item.medicine_name || '',
+          quantity: item.quantity_purchased ?? item.quantity ?? 1,
+          unit_price: item.cost_per_unit ?? item.unit_price ?? 0,
+        }));
+        const result = await ipc('purchases:create', { purchase: purchasePayload, items: itemsPayload });
+        if (!result?.success) throw new Error(result?.error || 'Failed to record purchase');
+        return { data: { id: result?.id, ...data } };
+      }
+      // Refunds / Returns
+      if (url.includes('refunds') || url.includes('returns')) {
+        const refundedItems = (data?.items || []).filter((item: any) => (item.quantity_returned ?? item.quantity ?? 0) > 0);
+        const returnPayload = {
+          original_sale_id: data?.sale_id,
+          return_invoice_no: `RET-${Date.now()}`,
+          return_reason: data?.reason || 'Customer return',
+          items_returned: refundedItems.reduce((sum: number, item: any) => sum + (item.quantity_returned ?? item.quantity ?? 0), 0),
+          refund_amount: data?.total_amount || 0,
+          notes: data?.notes || '',
+          created_by: 'admin',
+          items: refundedItems.map((item: any) => ({
+            medicine_id: typeof item.medicine === 'number' ? item.medicine : item.medicine?.id ?? item.medicine_id ?? null,
+            medicine_name: item.medicine?.generic_name || item.medicine?.name || item.medicine_name || item.generic_name || item.name || '',
+            quantity_returned: item.quantity_returned ?? item.quantity ?? 0,
+            unit_price: item.unit_price ?? 0,
+          })),
+        };
+        const result = await ipc('returns:create', returnPayload);
+        if (!result?.success) throw new Error(result?.error || 'Failed to create refund');
+        return { data: { id: result?.id, ...data } };
+      }
       console.warn('[desktopApi.post] unhandled:', url);
       return { data: { id: Date.now(), ...(data || {}) } };
     } catch (err) {
@@ -1119,12 +1179,16 @@ const desktopApi = {
 
   put: (url: string, data?: any) => {
     try {
+      const urlId = url.match(/\/(\d+)\/?$/)?.[1];
       if (url.includes('inventory/medicines')) {
-        return ipc('medicines:update', { id: getEntityId(data?.id), ...data });
+        const id = getEntityId(data?.id) ?? (urlId ? parseInt(urlId) : undefined);
+        return ipc('medicines:update', { id, ...data }).then((r: any) => {
+          if (!r?.success) throw new Error(r?.error || 'Failed to update medicine');
+          return { data: r?.data || { id, ...data } };
+        });
       }
-      const putId = url.match(/\/(\d+)\/?$/)?.[1];
-      if (url.includes('customers') && putId) {
-        return ipc('customers:update', { id: parseInt(putId), data }).then((r: any) => ({ data: r?.data || data }));
+      if (url.includes('customers') && urlId) {
+        return ipc('customers:update', { id: parseInt(urlId), data }).then((r: any) => ({ data: r?.data || data }));
       }
       console.warn('[desktop api] unhandled PUT:', url);
       return Promise.resolve({ data: data || {} });
@@ -1138,7 +1202,8 @@ const desktopApi = {
     try {
       const id = url.match(/\/(\d+)\/?$/)?.[1];
       if (url.includes('inventory/medicines') && id) {
-        await ipc('medicines:delete', parseInt(id));
+        const r = await ipc('medicines:delete', parseInt(id));
+        if (!r?.success) throw new Error(r?.error || 'Failed to delete medicine');
         return { data: null };
       }
       console.warn('[desktop api] unhandled DELETE:', url);
