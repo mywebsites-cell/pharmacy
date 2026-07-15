@@ -38,11 +38,28 @@ export const Header: React.FC = () => {
   // Fetch notification counts once on mount
   const fetchNotifications = useCallback(async () => {
     try {
+      console.log('[Header] Fetching notifications...');
       const [stockRes, expiryRes, kpiRes] = await Promise.allSettled([
         inventoryService.getLowStock(),
         inventoryService.getExpiringSoon(30),
         analyticsService.getDashboard(),
       ]);
+
+      console.log('[Header] Notification fetch results:', {
+        stockStatus: stockRes.status,
+        expiryStatus: expiryRes.status,
+        kpiStatus: kpiRes.status,
+      });
+
+      if (stockRes.status === 'rejected') {
+        console.error('[Header] getLowStock failed:', stockRes.reason);
+      }
+      if (expiryRes.status === 'rejected') {
+        console.error('[Header] getExpiringSoon failed:', expiryRes.reason);
+      }
+      if (kpiRes.status === 'rejected') {
+        console.error('[Header] getDashboard failed:', kpiRes.reason);
+      }
 
       const lowStockItems = stockRes.status === 'fulfilled'
         ? (stockRes.value.data?.results || stockRes.value.data || [])
@@ -67,14 +84,22 @@ export const Header: React.FC = () => {
         ? (kpiRes.value.data?.overdue_dues_count || 0)
         : 0;
 
+      console.log('[Header] Setting notification data:', {
+        lowStock: lowStockItems.length,
+        expiringSoon: expiringSoon.length,
+        expired: expired.length,
+        overdueDues,
+      });
+
       setNotifData({
         lowStock: lowStockItems.length,
         expiringSoon: expiringSoon.length,
         expired: expired.length,
         overdueDues,
       });
-    } catch {
-      // Silently fail — notifications are non-critical
+    } catch (err) {
+      console.error('[Header] fetchNotifications error:', err instanceof Error ? err.message : String(err));
+      console.error('[Header] Full error:', err);
     }
   }, []);
 
@@ -99,7 +124,10 @@ export const Header: React.FC = () => {
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-800 flex justify-center items-center gap-2">
           <AlertCircle className="w-4 h-4" />
           Your subscription expires in {daysUntilExpiry} days.
-          <Link to="/subscribe" className="font-semibold underline ml-2 hover:text-amber-900">Renew Now</Link>
+          {!!(window as any).electronAPI
+            ? <button onClick={() => (window as any).electronAPI.invoke('app:open-renewal-page').catch(() => (window as any).electronAPI.invoke('app:open-url', 'https://medicly.org/pricing'))} className="font-semibold underline ml-2 hover:text-amber-900">Renew Now</button>
+            : <Link to="/subscribe" className="font-semibold underline ml-2 hover:text-amber-900">Renew Now</Link>
+          }
         </div>
       )}
       <div className="flex items-center justify-between px-4 py-3">

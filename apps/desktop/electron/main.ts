@@ -600,12 +600,7 @@ ipcMain.handle('license:validate-online', async () => {
 });
 
 // ---- App URLs Redirects ---------------------------------------
-const getWebPortalUrl = () => {
-  if (SERVER_URL.includes('localhost:8000') || SERVER_URL.includes('127.0.0.1:8000')) {
-    return 'http://localhost:3000';
-  }
-  return SERVER_URL;
-};
+const WEB_PORTAL_URL = 'https://medicly.org';
 
 ipcMain.handle('app:open-url', async (_event, url: string) => {
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -616,14 +611,12 @@ ipcMain.handle('app:open-url', async (_event, url: string) => {
 });
 
 ipcMain.handle('app:open-forgot-password', async () => {
-  const webUrl = getWebPortalUrl();
-  await shell.openExternal(`${webUrl}/login?mode=forgot`);
+  await shell.openExternal(`${WEB_PORTAL_URL}/login?mode=forgot`);
   return { success: true };
 });
 
 ipcMain.handle('app:open-renewal-page', async () => {
-  const webUrl = getWebPortalUrl();
-  await shell.openExternal(`${webUrl}/subscribe`);
+  await shell.openExternal(`${WEB_PORTAL_URL}/pricing`);
   return { success: true };
 });
 

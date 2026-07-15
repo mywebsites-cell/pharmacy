@@ -116,7 +116,15 @@ const SubscriptionCard: React.FC<{ subscription: any; features: any; FEATURE_LAB
           </div>
         </div>
         <button
-          onClick={() => navigate('/subscribe')}
+          onClick={() => {
+            if (!!(window as any).electronAPI) {
+              (window as any).electronAPI.invoke('app:open-renewal-page').catch(() =>
+                (window as any).electronAPI.invoke('app:open-url', 'https://medicly.org/pricing')
+              );
+            } else {
+              navigate('/subscribe');
+            }
+          }}
           className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-xl font-semibold text-sm shadow transition-all hover:shadow-blue-400/30 flex-shrink-0"
         >
           <Zap className="w-4 h-4" />

@@ -28,6 +28,18 @@ import StaffActivation from './pages/StaffActivation';
 import './index.css';
 
 const queryClient = new QueryClient();
+const IS_ELECTRON = !!(window as any).electronAPI;
+
+// Open subscription page: external browser in Electron, internal route on web
+function openSubscribePage(navigate: ReturnType<typeof useNavigate>) {
+  if (IS_ELECTRON) {
+    (window as any).electronAPI.invoke('app:open-renewal-page').catch(() =>
+      (window as any).electronAPI.invoke('app:open-url', 'https://medicly.org/pricing')
+    );
+  } else {
+    navigate('/subscribe');
+  }
+}
 
 function AppLayout() {
   const token = useAuthStore((state) => state.token);
@@ -66,6 +78,20 @@ function AppLayout() {
       setFeatures(ADMIN_FEATURES); // admin gets all features
       return;
     }
+
+    // In Electron mode, subscription is already populated by AppShell bridge
+    // from the auth:login IPC response. Do NOT call the HTTP API here — it
+    // returns an unhandled response that would overwrite the correct data.
+    if (IS_ELECTRON) {
+      const sub = subscription;
+      const isActive = sub?.status === 'active' && (!sub?.expires_at || new Date(sub.expires_at) > new Date());
+      const isPending = sub?.status === 'pending';
+      if (!isActive && !isPending && !isAdminUser) {
+        openSubscribePage(navigate);
+      }
+      return;
+    }
+
     api.get('/admin/tenant-subscriptions/my_subscription/').then(res => {
       const sub = res.data;
       setSubscription(sub);
