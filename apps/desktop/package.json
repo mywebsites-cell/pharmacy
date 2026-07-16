@@ -50,8 +50,7 @@
   },
   "build": {
     "appId": "com.medicly.desktop",
-    "productName": "Medicly",
-    "copyright": "Copyright © 2026 Medicly",
+    "productName": "Medicly",    "artifactName": "Medicly-setup-${version}.${ext}",    "copyright": "Copyright © 2026 Medicly",
     "directories": {
       "output": "release"
     },
