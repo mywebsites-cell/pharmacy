@@ -48,7 +48,10 @@ const validChannels = [
   'customers:create',
   'customers:update',
 
-  // Branches
+  // Generic server proxy (online-only features: branches, staff, etc.)
+  'server:request',
+
+  // Branches (legacy offline — kept for safety, now superseded by server:request)
   'branches:get-all',
   'branches:create',
   'branches:update',

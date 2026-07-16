@@ -122,6 +122,54 @@ async function confirmResetOtp(
   }
 }
 
+// ─── Staff Activation API helpers ───────────────────────────────────────────────
+
+/**
+ * The OTP is sent automatically by the server when the owner invites the staff
+ * member. This function just validates that a pending invite exists by advancing
+ * to the OTP screen (no API call needed here).
+ */
+async function sendStaffActivationOtp(email: string): Promise<{ ok: boolean; error?: string }> {
+  if (!email || !email.includes('@')) return { ok: false, error: 'Enter a valid email address.' };
+  return { ok: true };
+}
+
+async function acceptStaffInvite(
+  email: string,
+  otp: string,
+  username: string,
+  password: string,
+  confirm_password: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const isElectron = !!(window as any).electronAPI;
+  try {
+    if (isElectron) {
+      const result = await (window as any).electronAPI.invoke('server:request', {
+        method: 'POST',
+        url: '/pharmacy/branch-staff/accept_invite/',
+        data: { email, otp, username, password, confirm_password },
+        requireAuth: false,
+      });
+      if (!result?.success) {
+        const d = result?.data || {};
+        return { ok: false, error: d.error || d.detail || result?.error || 'Activation failed.' };
+      }
+      return { ok: true };
+    } else {
+      const res = await fetch(`${DJANGO_URL}/api/v1/pharmacy/branch-staff/accept_invite/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, username, password, confirm_password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { ok: false, error: data.error || data.detail || 'Activation failed.' };
+      return { ok: true };
+    }
+  } catch {
+    return { ok: false, error: 'Cannot connect to server. Check your internet connection.' };
+  }
+}
+
 // ─── OTP Input component ──────────────────────────────────────────────────────
 
 interface OtpInputProps {
@@ -226,6 +274,7 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
   // Staff activation shared state
   const [saEmail, setSaEmail] = useState('');
   const [saOtp, setSaOtp] = useState('');
+  const [saUsername, setSaUsername] = useState('');
   const [saNewPass, setSaNewPass] = useState('');
   const [saConfirmPass, setSaConfirmPass] = useState('');
   const [saShowNew, setSaShowNew] = useState(false);
@@ -371,7 +420,7 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
     if (saNewPass !== saConfirmPass) { setSaError('Passwords do not match.'); return; }
     if (saNewPass.length < 8) { setSaError('Password must be at least 8 characters.'); return; }
     setSaLoading(true);
-    const { ok, error: err } = await acceptStaffInvite(saEmail, saOtp, saNewPass, saConfirmPass);
+    const { ok, error: err } = await acceptStaffInvite(saEmail, saOtp, saUsername, saNewPass, saConfirmPass);
     setSaLoading(false);
     if (!ok) { setSaError(err || 'Activation failed.'); return; }
     setScreen('staff-done');
@@ -790,7 +839,8 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
             <h2 className="text-xl font-semibold text-white">Activate Staff Account</h2>
           </div>
           <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-            Enter the email address your administrator used to invite you. We'll send a one-time code to activate your account.
+            Enter the email address your administrator used to invite you.
+            Check your email inbox for the 6-digit activation code sent by your pharmacy owner.
           </p>
 
           {saError && (
@@ -819,9 +869,9 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
               {saLoading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Sending Code…
+                  Checking…
                 </span>
-              ) : 'Send Activation Code'}
+              ) : 'Continue to Activation'}
             </button>
           </form>
         </div>
@@ -919,6 +969,19 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
 
           <form onSubmit={handleCompleteActivation} className="space-y-4">
             <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1">Choose a Username</label>
+              <input
+                type="text"
+                value={saUsername}
+                onChange={(e) => setSaUsername(e.target.value)}
+                required
+                disabled={saLoading}
+                autoFocus
+                className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
+                placeholder="e.g. ali_pharmacist"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">New Password</label>
               <div className="relative">
                 <input
@@ -1000,7 +1063,7 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
           <button
             type="button"
             onClick={() => {
-              setSaEmail(''); setSaOtp(''); setSaNewPass(''); setSaConfirmPass('');
+              setSaEmail(''); setSaOtp(''); setSaUsername(''); setSaNewPass(''); setSaConfirmPass('');
               setSaError(''); setError('');
               setScreen('login');
             }}

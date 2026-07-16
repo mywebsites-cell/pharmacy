@@ -542,6 +542,45 @@ ipcMain.handle('auth:change-password', async (_event, { current_password, new_pa
   }
 });
 
+// ---- Generic Server API Proxy (online-only features: Branches, Staff) -------
+// Runs in main process so it bypasses renderer CSP restrictions.
+ipcMain.handle('server:request', async (_event, { method, url, data, requireAuth = true }) => {
+  const license = loadLicense();
+  const token = license?.access_token;
+
+  if (requireAuth && !token) {
+    return { success: false, status: 401, error: 'Not authenticated. Please log in.' };
+  }
+
+  try {
+    const fullUrl = `${SERVER_URL}/api/v1${url}`;
+    const hasBody = data !== undefined && data !== null;
+    const response = await fetch(fullUrl, {
+      method: (method || 'GET').toUpperCase(),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: hasBody ? JSON.stringify(data) : undefined,
+      signal: AbortSignal.timeout(15000),
+    });
+
+    const responseData = await response.json().catch(() => null) as any;
+
+    return {
+      success: response.ok,
+      status: response.status,
+      data: responseData,
+      error: !response.ok
+        ? (responseData?.detail || responseData?.error || `HTTP ${response.status}`)
+        : undefined,
+    };
+  } catch (err: any) {
+    console.error('[server:request] failed:', method, url, err?.message);
+    return { success: false, error: err?.message || 'Network request failed. Check your internet connection.' };
+  }
+});
+
 // ---- License: Get Status --------------------------------------
 ipcMain.handle('license:get-status', async () => {
   const license = loadLicense();

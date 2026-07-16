@@ -20,6 +20,7 @@ import DuesPage from '../../../frontend-web/src/pages/DuesPage'
 import SalesHistoryPage from '../../../frontend-web/src/pages/SalesHistoryPage'
 import RefundsPage from '../../../frontend-web/src/pages/RefundsPage'
 import { SettingsPage } from '../../../frontend-web/src/pages/SettingsPage'
+import BranchManagementPanel from '../../../frontend-web/src/pages/BranchManagementPanel'
 
 // ---- Auth bridge: populate web's useAuthStore from desktop license ----
 import { useAuthStore } from '../../../frontend-web/src/store'
@@ -192,9 +193,12 @@ export default function AppShell({ readOnly = false, user }: AppShellProps) {
   // Initialize desktop API when user logs in
   useEffect(() => {
     if (user) {
-      initializeDesktopAPI(null); // null = use local SQLite, no server sync needed
+      initializeDesktopAPI(null);
     }
   }, [user?.id]);
+
+  // Derived: is this user a branch staff member?
+  const isStaffMember = !!(user as any)?.is_staff_member || !!(user as any)?.staff_permissions;
 
   // Bridge: sync desktop user into web's useAuthStore so web pages & components work
   useEffect(() => {
@@ -331,6 +335,11 @@ export default function AppShell({ readOnly = false, user }: AppShellProps) {
                       <Route path="/accounting" element={<AccountingPage />} />
                       <Route path="/analytics" element={<AnalyticsPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
+                      {/* Branch management — online, owner only */}
+                      <Route
+                        path="/branches"
+                        element={isStaffMember ? <Navigate to="/" replace /> : <BranchManagementPanel />}
+                      />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </SectionErrorBoundary>
