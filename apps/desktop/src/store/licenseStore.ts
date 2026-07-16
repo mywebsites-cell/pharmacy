@@ -90,14 +90,23 @@ export const useLicenseStore = create<LicenseState>()(
           set({ lockState: result.lockState });
         }
         if (result?.license) {
+          const lic = result.license;
+          const existing = get().user;
           set({
             user: {
-              id: result.license.user_id,
-              name: result.license.name,
-              email: result.license.email,
-              role: result.license.role,
-              license_type: result.license.license_type,
-              access_token: result.license.access_token || '',
+              id: lic.user_id,
+              name: lic.name,
+              email: lic.email,
+              role: lic.role,
+              license_type: lic.license_type,
+              access_token: lic.access_token || '',
+              // Preserve subscription fields — stored in license file since v1.0.16
+              subscription_status: lic.subscription_status ?? existing?.subscription_status,
+              subscription_expires_at: lic.subscription_expires_at ?? existing?.subscription_expires_at,
+              // Preserve features from the persisted user if not in license
+              features: existing?.features,
+              staff_permissions: lic.staff_permissions ?? null,
+              is_staff_member: lic.is_staff_member ?? false,
             },
           });
         }

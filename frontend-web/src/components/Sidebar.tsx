@@ -165,7 +165,7 @@ export const Sidebar: React.FC = () => {
             {showingAdminView ? (
               <p className="text-xs text-slate-500 text-center">System Administration</p>
             ) : (
-              <p className="text-xs text-gray-500 text-center">v1.0.15 © 2026 Medicly</p>
+              <p className="text-xs text-gray-500 text-center">v1.0.16 © 2026 Medicly</p>
             )}
           </div>
         )}

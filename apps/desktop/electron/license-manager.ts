@@ -35,6 +35,8 @@ export interface StoredLicense {
   last_validation: string;
   access_token: string;
   refresh_token: string;
+  subscription_status?: string;
+  subscription_expires_at?: string | null;
   staff_permissions?: any;
   is_staff_member?: boolean;
 }

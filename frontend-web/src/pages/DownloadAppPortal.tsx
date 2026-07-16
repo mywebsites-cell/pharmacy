@@ -150,8 +150,8 @@ const DownloadAppPortal: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-xl mx-auto">
               {/* Windows */}
               <a
-                href="https://github.com/mywebsites-cell/pharmacy/releases/download/v1.0.15/Medicly-setup-1.0.15.exe"
-                download="Medicly-setup-1.0.15.exe"
+                href="https://github.com/mywebsites-cell/pharmacy/releases/download/v1.0.16/Medicly-setup-1.0.16.exe"
+                download="Medicly-setup-1.0.16.exe"
                 className="flex-1 group relative overflow-hidden flex items-center gap-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 rounded-2xl px-6 py-5 transition-all shadow-xl shadow-blue-600/30 hover:shadow-blue-500/40 hover:scale-[1.02]"
               >
                 <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0">

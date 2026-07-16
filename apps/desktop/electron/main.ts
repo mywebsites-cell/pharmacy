@@ -476,6 +476,8 @@ ipcMain.handle('auth:login', async (_event, { email, password }) => {
       access_token: data.access,
       refresh_token: data.refresh || '',
       last_validation: new Date().toISOString(),
+      subscription_status: subStatus,
+      subscription_expires_at: expiresAt,
       staff_permissions: userPayload.staff_permissions ?? null,
       is_staff_member: userPayload.is_staff_member ?? false,
     };

@@ -244,11 +244,18 @@ export default function AppShell({ readOnly = false, user }: AppShellProps) {
         if ((user as any).staff_permissions) {
           setStaffPermissions((user as any).staff_permissions);
         }
+
+        // Derive subscription status: prefer stored value, fall back to lockState inference.
+        // If user is logged in and not locked for subscription_expired, they have a valid subscription.
+        const subStatus = (user as any).subscription_status
+          || (lockState.reason !== 'subscription_expired' ? 'active' : undefined);
+        const subExpiresAt = (user as any).subscription_expires_at || null;
+
         setSubscription(
-          user.subscription_status
+          subStatus
             ? {
-                status: user.subscription_status,
-                expires_at: user.subscription_expires_at || null,
+                status: subStatus,
+                expires_at: subExpiresAt,
                 plan: { features_config: user.features },
               }
             : null
