@@ -79,18 +79,9 @@ function AppLayout() {
       return;
     }
 
-    // In Electron mode, subscription is already populated by AppShell bridge
-    // from the auth:login IPC response. Do NOT call the HTTP API here — it
-    // returns an unhandled response that would overwrite the correct data.
-    if (IS_ELECTRON) {
-      const sub = subscription;
-      const isActive = sub?.status === 'active' && (!sub?.expires_at || new Date(sub.expires_at) > new Date());
-      const isPending = sub?.status === 'pending';
-      if (!isActive && !isPending && !isAdminUser) {
-        openSubscribePage(navigate);
-      }
-      return;
-    }
+    // In Electron mode, subscription is already validated at login (IPC blocks expired subs)
+    // and populated by AppShell bridge. Skip the HTTP subscription check entirely.
+    if (IS_ELECTRON) return;
 
     api.get('/admin/tenant-subscriptions/my_subscription/').then(res => {
       const sub = res.data;

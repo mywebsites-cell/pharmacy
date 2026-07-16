@@ -68,7 +68,8 @@ const SubscriptionCard: React.FC<{ subscription: any; features: any; FEATURE_LAB
 
   const now = new Date();
   const msLeft = expiresAt ? expiresAt.getTime() - now.getTime() : null;
-  const isActive = status === 'active' && msLeft != null && msLeft > 0;
+  // null msLeft means no expiry date — treat as active (e.g. lifetime or server omitted date)
+  const isActive = status === 'active' && (msLeft == null || msLeft > 0);
   const isPending = status === 'pending';
   const totalDays = plan?.duration_days || 30;
   const daysLeft = msLeft != null ? msLeft / 86400000 : null;

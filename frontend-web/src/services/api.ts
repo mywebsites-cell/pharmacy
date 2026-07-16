@@ -1066,6 +1066,22 @@ const desktopApi = {
         if (!result?.success) throw new Error(result?.error || 'Failed to create medicine');
         return { data: result?.data || { id: result?.id, ...data, name: data?.name || data?.generic_name } };
       }
+      // Customers
+      if (url.includes('customers')) {
+        const fullName = data?.name || [data?.first_name, data?.last_name].filter(Boolean).join(' ').trim();
+        const result = await ipc('customers:create', {
+          name: fullName || data?.first_name || 'Unknown',
+          phone: data?.phone,
+          email: data?.email,
+          address: data?.address,
+          customer_type: data?.customer_type || 'retail',
+          credit_limit: data?.credit_limit ?? 0,
+          created_by: 'admin',
+        });
+        if (!result?.success) throw new Error(result?.error || 'Failed to create customer');
+        const id = result?.lastInsertRowid ?? result?.id;
+        return { data: normCustomer({ id, ...data, name: fullName }) };
+      }
       if (url.includes('sales/sales')) {
         // Sales creation logic...
         const invoiceNo = `INV-${Date.now()}`;
