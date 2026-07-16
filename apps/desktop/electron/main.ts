@@ -11,7 +11,7 @@ import { autoUpdater } from 'electron-updater';
 import {
   initDatabase, dbQuery, dbGet, dbRun, dbTransaction, medicinesDB, salesDB, customersDB, settingsDB,
   purchasesDB, prescriptionsDB, expensesDB, returnsDB, paymentsDB, stockMovementsDB, auditLogDB,
-  reportingDB, suppliersDB, duesDB, transactionsDB
+  reportingDB, suppliersDB, duesDB, transactionsDB, branchesDB
 } from './sqlite-db';
 import { getDeviceFingerprint } from './device-fingerprint';
 import { loadLicense, saveLicense, calculateLockState, clearLicense, StoredLicense } from './license-manager';
@@ -377,11 +377,8 @@ app.whenReady().then(async () => {
 
   // ── Silent background auto-updater (production only) ──────────────────────────
   if (!isDev) {
-    // 1. Initialize SQLite completely locally (for offline POS storage)
     autoUpdater.autoDownload = true;
-    // Install automatically the next time the user quits the app
-    autoUpdater.autoInstallOnAppQuit = true;
-    // Don't show a native system notification — we handle the UI ourselves
+    autoUpdater.autoInstallOnAppQuit = false; // We handle install manually for better control
     autoUpdater.autoRunAppAfterInstall = true;
 
     // Push events to the renderer so the UI can show a subtle banner
@@ -395,8 +392,12 @@ app.whenReady().then(async () => {
     });
 
     autoUpdater.on('update-downloaded', (info) => {
-      console.log('[updater] Update downloaded, will install on quit:', info.version);
+      console.log('[updater] Update downloaded, ready to install:', info.version);
       mainWindow?.webContents.send('updater:update-ready', info);
+      // Automatically install on quit (explicitly call quitAndInstall)
+      setImmediate(() => {
+        autoUpdater.quitAndInstall();
+      });
     });
 
     autoUpdater.on('error', (err) => {
@@ -455,6 +456,7 @@ ipcMain.handle('auth:login', async (_event, { email, password }) => {
 
     const userPayload = data.user || {};
     const features = data?.subscription_details?.plan_details?.features_config || data?.features || null;
+    const planName = data?.subscription_details?.plan_details?.name || data?.plan?.name || 'Premium';
     const subStatus = data.subscription_status || userPayload.subscription_status || 'active';
     const expiresAt = data.subscription_expires_at || userPayload.subscription_expires_at || null;
 
@@ -478,6 +480,7 @@ ipcMain.handle('auth:login', async (_event, { email, password }) => {
       last_validation: new Date().toISOString(),
       subscription_status: subStatus,
       subscription_expires_at: expiresAt,
+      plan_name: planName,
       staff_permissions: userPayload.staff_permissions ?? null,
       is_staff_member: userPayload.is_staff_member ?? false,
     };
@@ -492,6 +495,7 @@ ipcMain.handle('auth:login', async (_event, { email, password }) => {
       branchId: data.branch_id || userPayload.branch_id,
       subStatus,
       subscriptionExpiresAt: expiresAt,
+      planName,
       features,
       firstName: userPayload.first_name || userPayload.username || email,
       userId: userPayload.id,
@@ -827,6 +831,41 @@ ipcMain.handle('customers:create', (_e, c) => {
 });
 ipcMain.handle('customers:update', (_e, { id, data }) => {
   customersDB.update(id, data);
+  return { success: true };
+});
+
+// ---- Branches -------------------------------------------------
+ipcMain.handle('branches:get-all', () => ({ success: true, data: branchesDB.getAll() }));
+ipcMain.handle('branches:create', (_e, b) => {
+  const r = branchesDB.create(b);
+  const newBranch = branchesDB.getById(Number(r.lastInsertRowid));
+  return { success: true, data: newBranch };
+});
+ipcMain.handle('branches:update', (_e, { id, ...fields }) => {
+  branchesDB.update(id, fields);
+  return { success: true, data: branchesDB.getById(id) };
+});
+ipcMain.handle('branches:toggle-active', (_e, id) => {
+  branchesDB.toggleActive(id);
+  return { success: true, data: branchesDB.getById(id) };
+});
+ipcMain.handle('branches:delete', (_e, id) => {
+  branchesDB.delete(id);
+  return { success: true };
+});
+ipcMain.handle('branches:get-staff', (_e, branchId) => ({
+  success: true, data: branchesDB.getStaff(branchId)
+}));
+ipcMain.handle('branches:add-staff', (_e, staffData) => {
+  const r = branchesDB.addStaff(staffData);
+  return { success: true, id: r.lastInsertRowid };
+});
+ipcMain.handle('branches:update-staff-permissions', (_e, { id, permissions }) => {
+  branchesDB.updateStaffPermissions(id, permissions);
+  return { success: true };
+});
+ipcMain.handle('branches:revoke-staff', (_e, staffId) => {
+  branchesDB.revokeStaff(staffId);
   return { success: true };
 });
 

@@ -47,6 +47,17 @@ const validChannels = [
   'customers:get-all',
   'customers:create',
   'customers:update',
+
+  // Branches
+  'branches:get-all',
+  'branches:create',
+  'branches:update',
+  'branches:toggle-active',
+  'branches:delete',
+  'branches:get-staff',
+  'branches:add-staff',
+  'branches:update-staff-permissions',
+  'branches:revoke-staff',
   
   // Suppliers
   'suppliers:get-all',

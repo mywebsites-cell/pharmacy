@@ -250,12 +250,14 @@ export default function AppShell({ readOnly = false, user }: AppShellProps) {
         const subStatus = (user as any).subscription_status
           || (lockState.reason !== 'subscription_expired' ? 'active' : undefined);
         const subExpiresAt = (user as any).subscription_expires_at || null;
+        const planName = (user as any).plan_name || 'Premium';
 
         setSubscription(
           subStatus
             ? {
                 status: subStatus,
                 expires_at: subExpiresAt,
+                plan_details: { name: planName },
                 plan: { features_config: user.features },
               }
             : null

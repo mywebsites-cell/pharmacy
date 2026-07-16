@@ -340,6 +340,41 @@ function runMigrations(): void {
       created_at    TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- branches (Multi-branch management)
+    CREATE TABLE IF NOT EXISTS branches (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      name          TEXT NOT NULL,
+      code          TEXT NOT NULL UNIQUE,
+      city          TEXT,
+      branch_type   TEXT NOT NULL DEFAULT 'satellite' CHECK(branch_type IN ('main', 'satellite', 'warehouse')),
+      is_active     INTEGER NOT NULL DEFAULT 1,
+      phone_number  TEXT,
+      email         TEXT,
+      address_line_1 TEXT,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- branch_staff (Staff members per branch)
+    CREATE TABLE IF NOT EXISTS branch_staff (
+      id                                INTEGER PRIMARY KEY AUTOINCREMENT,
+      branch_id                         INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+      invited_name                      TEXT NOT NULL,
+      invited_email                     TEXT,
+      status                            TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('pending', 'active', 'revoked')),
+      user_last_login                   TEXT,
+      can_access_pos                    INTEGER NOT NULL DEFAULT 1,
+      can_access_inventory              INTEGER NOT NULL DEFAULT 1,
+      can_access_transaction_history    INTEGER NOT NULL DEFAULT 0,
+      can_access_dues                   INTEGER NOT NULL DEFAULT 0,
+      can_access_customers              INTEGER NOT NULL DEFAULT 1,
+      can_access_analytics              INTEGER NOT NULL DEFAULT 0,
+      can_access_accounting             INTEGER NOT NULL DEFAULT 0,
+      can_access_purchases              INTEGER NOT NULL DEFAULT 0,
+      can_access_prescriptions          INTEGER NOT NULL DEFAULT 0,
+      created_at                        TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     -- Professional Indexes for Performance
     CREATE INDEX IF NOT EXISTS idx_medicines_barcode ON medicines(barcode);
     CREATE INDEX IF NOT EXISTS idx_medicines_category ON medicines(category);
@@ -442,6 +477,44 @@ function ensureSchemaForExistingDb(): void {
       ON sales(substr(invoice_date,1,7));
     CREATE INDEX IF NOT EXISTS idx_purchases_ym
       ON purchases(substr(invoice_date,1,7));
+    CREATE INDEX IF NOT EXISTS idx_branch_staff_branch
+      ON branch_staff(branch_id);
+  `);
+
+  // Ensure branches table exists for existing DBs (CREATE TABLE IF NOT EXISTS handles new installs,
+  // but older DBs won't have it until this migration runs)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS branches (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      name          TEXT NOT NULL,
+      code          TEXT NOT NULL UNIQUE,
+      city          TEXT,
+      branch_type   TEXT NOT NULL DEFAULT 'satellite',
+      is_active     INTEGER NOT NULL DEFAULT 1,
+      phone_number  TEXT,
+      email         TEXT,
+      address_line_1 TEXT,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS branch_staff (
+      id                                INTEGER PRIMARY KEY AUTOINCREMENT,
+      branch_id                         INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+      invited_name                      TEXT NOT NULL,
+      invited_email                     TEXT,
+      status                            TEXT NOT NULL DEFAULT 'active',
+      user_last_login                   TEXT,
+      can_access_pos                    INTEGER NOT NULL DEFAULT 1,
+      can_access_inventory              INTEGER NOT NULL DEFAULT 1,
+      can_access_transaction_history    INTEGER NOT NULL DEFAULT 0,
+      can_access_dues                   INTEGER NOT NULL DEFAULT 0,
+      can_access_customers              INTEGER NOT NULL DEFAULT 1,
+      can_access_analytics              INTEGER NOT NULL DEFAULT 0,
+      can_access_accounting             INTEGER NOT NULL DEFAULT 0,
+      can_access_purchases              INTEGER NOT NULL DEFAULT 0,
+      can_access_prescriptions          INTEGER NOT NULL DEFAULT 0,
+      created_at                        TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 }
 
@@ -1775,4 +1848,115 @@ export const transactionsDB = {
 
     return rows;
   }
+};
+
+// ---- Branches (Multi-branch management) ------
+
+export const branchesDB = {
+  getAll: () => {
+    const branches = dbQuery<any>('SELECT * FROM branches ORDER BY created_at ASC');
+    return branches.map(b => ({
+      ...b,
+      is_active: b.is_active === 1 || b.is_active === true,
+      staff_count: (dbGet<{ count: number }>('SELECT COUNT(*) as count FROM branch_staff WHERE branch_id = ? AND status != ?', [b.id, 'revoked']) ?? { count: 0 }).count,
+    }));
+  },
+
+  getById: (id: number) => {
+    const b = dbGet<any>('SELECT * FROM branches WHERE id = ?', [id]);
+    if (!b) return null;
+    return { ...b, is_active: b.is_active === 1 || b.is_active === true };
+  },
+
+  create: (b: {
+    name: string;
+    code: string;
+    city?: string;
+    branch_type?: string;
+    phone_number?: string;
+    email?: string;
+    address_line_1?: string;
+  }) =>
+    dbRun(
+      `INSERT INTO branches (name, code, city, branch_type, phone_number, email, address_line_1)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [b.name, b.code, b.city ?? '', b.branch_type ?? 'satellite', b.phone_number ?? '', b.email ?? '', b.address_line_1 ?? '']
+    ),
+
+  update: (id: number, b: Partial<{
+    name: string; code: string; city: string; branch_type: string;
+    phone_number: string; email: string; address_line_1: string;
+  }>) => {
+    const fields = Object.keys(b).map(k => `${k} = ?`).join(', ');
+    return dbRun(`UPDATE branches SET ${fields}, updated_at = datetime('now') WHERE id = ?`, [...Object.values(b), id]);
+  },
+
+  toggleActive: (id: number) =>
+    dbRun(`UPDATE branches SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END, updated_at = datetime('now') WHERE id = ?`, [id]),
+
+  delete: (id: number) => dbRun('DELETE FROM branches WHERE id = ?', [id]),
+
+  getStaff: (branchId: number) =>
+    dbQuery<any>('SELECT * FROM branch_staff WHERE branch_id = ? ORDER BY created_at ASC', [branchId]).map(s => ({
+      ...s,
+      can_access_pos: s.can_access_pos === 1,
+      can_access_inventory: s.can_access_inventory === 1,
+      can_access_transaction_history: s.can_access_transaction_history === 1,
+      can_access_dues: s.can_access_dues === 1,
+      can_access_customers: s.can_access_customers === 1,
+      can_access_analytics: s.can_access_analytics === 1,
+      can_access_accounting: s.can_access_accounting === 1,
+      can_access_purchases: s.can_access_purchases === 1,
+      can_access_prescriptions: s.can_access_prescriptions === 1,
+    })),
+
+  addStaff: (s: {
+    branch_id: number;
+    invited_name: string;
+    invited_email?: string;
+    can_access_pos?: boolean;
+    can_access_inventory?: boolean;
+    can_access_transaction_history?: boolean;
+    can_access_dues?: boolean;
+    can_access_customers?: boolean;
+    can_access_analytics?: boolean;
+    can_access_accounting?: boolean;
+    can_access_purchases?: boolean;
+    can_access_prescriptions?: boolean;
+  }) =>
+    dbRun(
+      `INSERT INTO branch_staff
+         (branch_id, invited_name, invited_email, status,
+          can_access_pos, can_access_inventory, can_access_transaction_history,
+          can_access_dues, can_access_customers, can_access_analytics,
+          can_access_accounting, can_access_purchases, can_access_prescriptions)
+       VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [s.branch_id, s.invited_name, s.invited_email ?? '',
+       s.can_access_pos ? 1 : 0,
+       s.can_access_inventory ? 1 : 0,
+       s.can_access_transaction_history ? 1 : 0,
+       s.can_access_dues ? 1 : 0,
+       s.can_access_customers ? 1 : 0,
+       s.can_access_analytics ? 1 : 0,
+       s.can_access_accounting ? 1 : 0,
+       s.can_access_purchases ? 1 : 0,
+       s.can_access_prescriptions ? 1 : 0]
+    ),
+
+  updateStaffPermissions: (staffId: number, perms: Record<string, boolean>) => {
+    const allowed = [
+      'can_access_pos', 'can_access_inventory', 'can_access_transaction_history',
+      'can_access_dues', 'can_access_customers', 'can_access_analytics',
+      'can_access_accounting', 'can_access_purchases', 'can_access_prescriptions',
+    ];
+    const fields = Object.entries(perms)
+      .filter(([k]) => allowed.includes(k))
+      .map(([k, v]) => `${k} = ${v ? 1 : 0}`)
+      .join(', ');
+    if (!fields) return;
+    return dbRun(`UPDATE branch_staff SET ${fields} WHERE id = ?`, [staffId]);
+  },
+
+  revokeStaff: (staffId: number) =>
+    dbRun(`UPDATE branch_staff SET status = 'revoked' WHERE id = ?`, [staffId]),
 };

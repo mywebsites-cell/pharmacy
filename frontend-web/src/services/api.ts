@@ -1038,6 +1038,29 @@ const desktopApi = {
         return { data: {} };
       }
     }
+    // Branches — list all branches with staff count
+    if (url.includes('pharmacy/branches') && !url.includes('branch-staff')) {
+      try {
+        const result = await ipc('branches:get-all');
+        const branches = result?.data || [];
+        return { data: { results: branches, count: branches.length } };
+      } catch (err) {
+        console.error('[desktopApi] branches:get-all failed:', err);
+        return { data: { results: [], count: 0 } };
+      }
+    }
+    // Branch staff list
+    if (url.includes('pharmacy/branch-staff')) {
+      try {
+        const branchId = url.split('branch=')[1]?.split('&')[0];
+        const result = await ipc('branches:get-staff', Number(branchId));
+        const staff = result?.data || [];
+        return { data: { results: staff, count: staff.length } };
+      } catch (err) {
+        console.error('[desktopApi] branches:get-staff failed:', err);
+        return { data: { results: [], count: 0 } };
+      }
+    }
     console.warn('[desktop api] unhandled GET:', url);
     return { data: { results: [], count: 0 } };
   },
@@ -1081,6 +1104,51 @@ const desktopApi = {
         if (!result?.success) throw new Error(result?.error || 'Failed to create customer');
         const id = result?.lastInsertRowid ?? result?.id;
         return { data: normCustomer({ id, ...data, name: fullName }) };
+      }
+      // Branches — create new branch
+      if (url.match(/pharmacy\/branches\/?$/) || url === '/pharmacy/branches/') {
+        const result = await ipc('branches:create', {
+          name: data?.name,
+          code: data?.code,
+          city: data?.city,
+          branch_type: data?.branch_type || 'satellite',
+          phone_number: data?.phone_number,
+          email: data?.email,
+          address_line_1: data?.address_line_1,
+        });
+        if (!result?.success) throw new Error(result?.error || 'Failed to create branch');
+        return { data: result?.data || { id: result?.id, ...data, is_active: true, staff_count: 0 } };
+      }
+      // Branch toggle active (POST to /pharmacy/branches/{id}/toggle_active/)
+      if (url.includes('branches') && url.includes('toggle_active')) {
+        const branchId = url.match(/branches\/(\d+)\//)?.[1];
+        if (branchId) {
+          const result = await ipc('branches:toggle-active', parseInt(branchId));
+          if (!result?.success) throw new Error(result?.error || 'Failed to toggle branch');
+          return { data: result?.data || {} };
+        }
+      }
+      // Branch staff — invite/add staff (offline: creates as active directly)
+      if (url.includes('branch-staff/invite')) {
+        const result = await ipc('branches:add-staff', {
+          branch_id: parseInt(data?.branch_id),
+          invited_name: data?.invited_name,
+          invited_email: data?.invited_email,
+          can_access_pos: true,
+          can_access_inventory: true,
+          can_access_customers: true,
+        });
+        if (!result?.success) throw new Error(result?.error || 'Failed to add staff');
+        return { data: { id: result?.id, ...data, status: 'active' } };
+      }
+      // Branch staff — revoke
+      if (url.includes('branch-staff') && url.includes('revoke')) {
+        const staffId = url.match(/branch-staff\/([^/]+)\//)?.[1];
+        if (staffId) {
+          const result = await ipc('branches:revoke-staff', parseInt(staffId));
+          if (!result?.success) throw new Error(result?.error || 'Failed to revoke staff');
+          return { data: { success: true } };
+        }
       }
       if (url.includes('sales/sales')) {
         // Sales creation logic...
@@ -1193,6 +1261,49 @@ const desktopApi = {
     }
   },
 
+  patch: async (url: string, data?: any) => {
+    try {
+      const id = url.match(/\/(\d+)\/?/)?.[1];
+      // Branch edit
+      if (url.match(/pharmacy\/branches\/\d+\/$/) && id) {
+        const result = await ipc('branches:update', { id: parseInt(id), ...data });
+        if (!result?.success) throw new Error(result?.error || 'Failed to update branch');
+        return { data: result?.data || data };
+      }
+      // Branch toggle active
+      if (url.includes('toggle_active') && id) {
+        const branchId = url.match(/branches\/(\d+)\//)?.[1];
+        if (branchId) {
+          const result = await ipc('branches:toggle-active', parseInt(branchId));
+          if (!result?.success) throw new Error(result?.error || 'Failed to toggle branch');
+          return { data: result?.data || {} };
+        }
+      }
+      // Staff permissions
+      if (url.match(/branch-staff\/\d+\/permissions/) && id) {
+        const result = await ipc('branches:update-staff-permissions', { id: parseInt(id), permissions: data });
+        if (!result?.success) throw new Error(result?.error || 'Failed to update permissions');
+        return { data: { success: true } };
+      }
+      // Medicine update via patch
+      if (url.includes('inventory/medicines') && id) {
+        const result = await ipc('medicines:update', { id: parseInt(id), ...data });
+        if (!result?.success) throw new Error(result?.error || 'Failed to update medicine');
+        return { data: result?.data || { id: parseInt(id), ...data } };
+      }
+      // Customer update via patch
+      if (url.includes('customers') && id) {
+        await ipc('customers:update', { id: parseInt(id), data });
+        return { data: { id: parseInt(id), ...data } };
+      }
+      console.warn('[desktopApi.patch] unhandled:', url);
+      return { data: data || {} };
+    } catch (err) {
+      console.error('[desktopApi.patch] error:', url, err instanceof Error ? err.message : String(err));
+      throw err;
+    }
+  },
+
   put: (url: string, data?: any) => {
     try {
       const urlId = url.match(/\/(\d+)\/?$/)?.[1];
@@ -1220,6 +1331,12 @@ const desktopApi = {
       if (url.includes('inventory/medicines') && id) {
         const r = await ipc('medicines:delete', parseInt(id));
         if (!r?.success) throw new Error(r?.error || 'Failed to delete medicine');
+        return { data: null };
+      }
+      // Delete branch
+      if (url.includes('pharmacy/branches') && id) {
+        const r = await ipc('branches:delete', parseInt(id));
+        if (!r?.success) throw new Error(r?.error || 'Failed to delete branch');
         return { data: null };
       }
       console.warn('[desktop api] unhandled DELETE:', url);
