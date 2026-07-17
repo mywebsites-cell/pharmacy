@@ -394,9 +394,9 @@ app.whenReady().then(async () => {
     autoUpdater.on('update-downloaded', (info) => {
       console.log('[updater] Update downloaded, ready to install:', info.version);
       mainWindow?.webContents.send('updater:update-ready', info);
-      // Automatically install on quit (explicitly call quitAndInstall)
+      // Install silently (isSilent=true, forceRunAfter=true) so no NSIS dialog appears
       setImmediate(() => {
-        autoUpdater.quitAndInstall();
+        autoUpdater.quitAndInstall(true, true);
       });
     });
 
