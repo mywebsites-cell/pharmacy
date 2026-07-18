@@ -40,6 +40,8 @@ export interface StoredLicense {
   plan_name?: string;
   staff_permissions?: any;
   is_staff_member?: boolean;
+  pharmacy_id?: string;
+  branch_id?: string;
 }
 
 export interface AppLockState {

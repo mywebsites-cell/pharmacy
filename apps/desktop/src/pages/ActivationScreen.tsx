@@ -334,6 +334,8 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
             subscription_expires_at: result.subscriptionExpiresAt,
             staff_permissions: result.staffPermissions ?? null,
             is_staff_member: !!result.isStaffMember,
+            pharmacy_id: result.pharmacyId ?? undefined,
+            branch_id: result.branchId ?? undefined,
           }
         : result.user;
 

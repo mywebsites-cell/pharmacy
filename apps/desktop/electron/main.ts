@@ -483,6 +483,8 @@ ipcMain.handle('auth:login', async (_event, { email, password }) => {
       plan_name: planName,
       staff_permissions: userPayload.staff_permissions ?? null,
       is_staff_member: userPayload.is_staff_member ?? false,
+      pharmacy_id: data.pharmacy_id || userPayload.pharmacy_id || undefined,
+      branch_id: data.branch_id || userPayload.branch_id || undefined,
     };
     saveLicense(localLicense);
 

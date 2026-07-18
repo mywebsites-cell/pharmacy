@@ -237,6 +237,8 @@ export default function AppShell({ readOnly = false, user }: AppShellProps) {
           name: user.name,
           email: user.email,
           role: user.role,
+          pharmacy_id: (user as any).pharmacy_id ?? undefined,
+          branch_id: (user as any).branch_id ?? undefined,
           staff_permissions: (user as any).staff_permissions ?? null,
           is_staff_member: !!(user as any).staff_permissions,
         };

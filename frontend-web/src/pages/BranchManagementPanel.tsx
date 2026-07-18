@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, Users, Plus, Mail, UserCheck, UserX, Pencil, Trash2,
@@ -541,7 +541,8 @@ export default function BranchManagementPanel() {
   const subscription = useAuthStore(s => s.subscription);
   const user = useAuthStore(s => s.user);
 
-  const pharmacyId = user?.pharmacy_id;
+  // pharmacyId comes from auth store; if missing, derive it from the first loaded branch
+  const [resolvedPharmacyId, setResolvedPharmacyId] = useState<string | undefined>(user?.pharmacy_id);
   const plan = subscription?.plan_details ?? subscription?.plan ?? null;
   const maxBranches = plan?.max_branches ?? 1;
   const maxStaff = plan?.max_devices_per_branch ?? 1;
@@ -549,13 +550,25 @@ export default function BranchManagementPanel() {
   const { data: branches, isLoading } = useQuery<Branch[]>({
     queryKey: ['branches'],
     queryFn: () => api.get('/pharmacy/branches/').then(r => r.data.results ?? r.data),
-  });
+    onSuccess: (data: Branch[]) => {
+      // Derive pharmacyId from first branch if not already known
+      if (!resolvedPharmacyId && data.length > 0) {
+        const b = data[0] as any;
+        if (b.pharmacy) setResolvedPharmacyId(String(b.pharmacy));
+      }
+    },
+  } as any);
+
+  // Keep resolvedPharmacyId in sync when user store updates
+  useEffect(() => {
+    if (user?.pharmacy_id) setResolvedPharmacyId(user.pharmacy_id);
+  }, [user?.pharmacy_id]);
 
   const staffCounts = (branches ?? []).reduce((acc, b) => ({ ...acc, [b.id]: b.staff_count ?? 0 }), {});
 
   return (
     <div className="min-h-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
-      {addingBranch && pharmacyId && <AddBranchModal pharmacyId={pharmacyId} onClose={() => setAddingBranch(false)} />}
+      {addingBranch && <AddBranchModal pharmacyId={resolvedPharmacyId ?? ''} onClose={() => setAddingBranch(false)} />}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">

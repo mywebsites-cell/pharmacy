@@ -40,6 +40,10 @@ export interface AppUser {
   subscription_status?: string;
   subscription_expires_at?: string | null;
   plan_name?: string;
+  pharmacy_id?: string;
+  branch_id?: string;
+  staff_permissions?: any;
+  is_staff_member?: boolean;
 }
 
 export interface LockState {
@@ -109,6 +113,8 @@ export const useLicenseStore = create<LicenseState>()(
               features: existing?.features,
               staff_permissions: lic.staff_permissions ?? null,
               is_staff_member: lic.is_staff_member ?? false,
+              pharmacy_id: lic.pharmacy_id ?? existing?.pharmacy_id,
+              branch_id: lic.branch_id ?? existing?.branch_id,
             },
           });
         }
