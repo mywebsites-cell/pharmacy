@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store';
-import { Shield, Users, Activity, Settings, Layers, CheckCircle, XCircle, Clock, Home, Edit, Trash2, TrendingUp, TrendingDown, Search, Filter, ShieldCheck, CreditCard, Upload, X, Monitor, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Shield, Users, Activity, Settings, Layers, CheckCircle, XCircle, Clock, Home, Edit, Trash2, TrendingUp, TrendingDown, Search, Filter, ShieldCheck, CreditCard, Upload, X, Monitor, ToggleLeft, ToggleRight, ChevronDown, ChevronRight, Building2, UserPlus, Key, RefreshCw } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { toast } from '../components/toast';
@@ -49,22 +49,24 @@ export const AdminPanel: React.FC = () => {
   const [showPaymentAccountModal, setShowPaymentAccountModal] = useState(false);
   const [selectedPaymentAccount, setSelectedPaymentAccount] = useState<any>(null);
   const paymentAccountQrInputRef = React.useRef<HTMLInputElement>(null);
-  const [paymentAccountForm, setPaymentAccountForm] = useState({ 
+  const [paymentAccountForm, setPaymentAccountForm] = useState({
     account_title: '', bank_name: '', account_number: '', iban: '', instructions: '', qr_code: ''
   });
-  
-  // User Management
+
+  // User & Tenant Matrix State
+  const [tenantMatrix, setTenantMatrix] = useState<{ pharmacies: any[]; super_admins: any[] } | null>(null);
+  const [expandedPharmacies, setExpandedPharmacies] = useState<Record<string, boolean>>({});
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [userFormData, setUserFormData] = useState({ username: '', email: '', role: 'user', password: '' });
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
-  const [newPlan, setNewPlan] = useState({ 
+  const [newPlan, setNewPlan] = useState({
     name: '', price: '', duration_days: 30, description: '', color: 'blue', is_popular: false,
-    has_pos: false, has_inventory: false, has_transaction_history: false, has_dues: false, 
-    has_customer_management: false, has_analytics: false, has_accounting: false, 
-    has_purchase_management: false, has_prescriptions: false, has_desktop_app: false, 
+    has_pos: false, has_inventory: false, has_transaction_history: false, has_dues: false,
+    has_customer_management: false, has_analytics: false, has_accounting: false,
+    has_purchase_management: false, has_prescriptions: false, has_desktop_app: false,
     has_api_access: false, has_multi_branch: false,
     max_medicines: '', max_customers: '',
     max_branches: 1, max_devices_per_branch: 1
@@ -113,7 +115,7 @@ export const AdminPanel: React.FC = () => {
         console.error('Failed to load users:', err);
       }
     };
-    
+
     loadInitialData();
   }, []);
 
@@ -138,14 +140,23 @@ export const AdminPanel: React.FC = () => {
   const fetchUsersAndSubscriptions = async () => {
     setLoading(true);
     try {
-      const [usersRes, subsRes, plansRes] = await Promise.all([
+      const [usersRes, subsRes, plansRes, matrixRes] = await Promise.all([
         api.get('/admin/users/'),
         api.get('/admin/tenant-subscriptions/'),
-        api.get('/admin/subscription-plans/')
+        api.get('/admin/subscription-plans/'),
+        api.get('/admin/users/tenant_matrix/').catch(() => ({ data: null }))
       ]);
       setUsers(usersRes.data.results || usersRes.data || []);
       setTenantSubscriptions(subsRes.data.results || subsRes.data || []);
       setPlans(plansRes.data.results || plansRes.data || []);
+      if (matrixRes && matrixRes.data) {
+        setTenantMatrix(matrixRes.data);
+        // Expand first pharmacy by default
+        if (matrixRes.data.pharmacies && matrixRes.data.pharmacies.length > 0) {
+          const firstId = matrixRes.data.pharmacies[0].pharmacy_id;
+          setExpandedPharmacies(prev => ({ [firstId]: true, ...prev }));
+        }
+      }
     } catch (err) {
       console.error(err);
     }
@@ -190,15 +201,15 @@ export const AdminPanel: React.FC = () => {
     }
 
     if (status === 'pending') {
-      return { text: `${planName} (Pending)` , active: false };
+      return { text: `${planName} (Pending)`, active: false };
     }
 
     if (status === 'expired') {
-      return { text: `${planName} (Expired)` , active: false };
+      return { text: `${planName} (Expired)`, active: false };
     }
 
     if (status === 'cancelled') {
-      return { text: `${planName} (Cancelled)` , active: false };
+      return { text: `${planName} (Cancelled)`, active: false };
     }
 
     return { text: planName, active: false };
@@ -256,7 +267,7 @@ export const AdminPanel: React.FC = () => {
     setSelectedSubmission(submission);
     setShowSubmissionModal(true);
     setRejectReason('');
-    
+
     // Fetch full submission details with screenshot
     api.get(`/admin/payment-submissions/${submission.id}/`).then(res => {
       setSelectedSubmission(res.data);
@@ -376,7 +387,7 @@ export const AdminPanel: React.FC = () => {
       if (userFormData.password) {
         updateData.password = userFormData.password;
       }
-      
+
       await api.patch(`/admin/users/${selectedUser.id}/`, updateData);
       setShowUserModal(false);
       setSelectedUser(null);
@@ -507,11 +518,11 @@ export const AdminPanel: React.FC = () => {
       }
       setShowPlanForm(false);
       setEditingPlanId(null);
-      setNewPlan({ 
+      setNewPlan({
         name: '', price: '', duration_days: 30, description: '', color: 'blue', is_popular: false,
-        has_pos: false, has_inventory: false, has_transaction_history: false, has_dues: false, 
-        has_customer_management: false, has_analytics: false, has_accounting: false, 
-        has_purchase_management: false, has_prescriptions: false, has_desktop_app: false, 
+        has_pos: false, has_inventory: false, has_transaction_history: false, has_dues: false,
+        has_customer_management: false, has_analytics: false, has_accounting: false,
+        has_purchase_management: false, has_prescriptions: false, has_desktop_app: false,
         has_api_access: false, has_multi_branch: false,
         max_medicines: '', max_customers: '',
         max_branches: 1, max_devices_per_branch: 1
@@ -652,11 +663,10 @@ export const AdminPanel: React.FC = () => {
             <Link
               key={tab.name}
               to={tab.path}
-              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${
-                isActive 
-                  ? 'bg-blue-600 text-white' 
+              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${isActive
+                  ? 'bg-blue-600 text-white'
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
-              }`}
+                }`}
             >
               <Icon className="w-4 h-4" />
               {tab.name}
@@ -703,17 +713,15 @@ export const AdminPanel: React.FC = () => {
                 <div className="flex items-start justify-between gap-6">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className={`w-3 h-3 rounded-full transition-colors ${
-                        webAppEnabled
+                      <div className={`w-3 h-3 rounded-full transition-colors ${webAppEnabled
                           ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
                           : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]'
-                      }`} />
+                        }`} />
                       <h3 className="text-lg font-semibold text-white">Web Application Access</h3>
-                      <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${
-                        webAppEnabled
+                      <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${webAppEnabled
                           ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                           : 'bg-red-500/15 text-red-400 border border-red-500/30'
-                      }`}>
+                        }`}>
                         {webAppEnabled ? 'ENABLED' : 'DISABLED'}
                       </span>
                     </div>
@@ -729,15 +737,13 @@ export const AdminPanel: React.FC = () => {
                     onClick={handleWebAppToggle}
                     disabled={webToggleLoading}
                     title={webAppEnabled ? 'Click to disable web app for regular users' : 'Click to enable web app for regular users'}
-                    className={`flex-shrink-0 relative w-16 h-8 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 ${
-                      webAppEnabled
+                    className={`flex-shrink-0 relative w-16 h-8 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 ${webAppEnabled
                         ? 'bg-emerald-500 focus:ring-emerald-500'
                         : 'bg-slate-600 focus:ring-slate-500'
-                    } ${webToggleLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-90'}`}
+                      } ${webToggleLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:opacity-90'}`}
                   >
-                    <span className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
-                      webAppEnabled ? 'translate-x-8' : 'translate-x-0'
-                    }`} />
+                    <span className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${webAppEnabled ? 'translate-x-8' : 'translate-x-0'
+                      }`} />
                     {webToggleLoading && (
                       <span className="absolute inset-0 flex items-center justify-center">
                         <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -760,212 +766,365 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
-        {location.pathname === '/admin/users' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+                {location.pathname === '/admin/users' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
               <div>
-                <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">Tenant Management</h2>
-                <p className="text-slate-400 mt-1">Manage global users, pharmacy roles, and their subscription status.</p>
+                <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">Tenant Management Matrix</h2>
+                <p className="text-slate-400 mt-1">Hierarchical view of Pharmacy Tenants, Owners, Branches, and Staff accounts.</p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
                     type="text"
-                    placeholder="Search users..."
+                    placeholder="Search pharmacy, user, or email..."
                     value={userSearchQuery}
                     onChange={(e) => setUserSearchQuery(e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-slate-200 placeholder:text-slate-500 w-64 transition-all"
+                    className="bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-slate-200 placeholder:text-slate-500 w-72 transition-all"
                   />
-                </div>
-                <div className="relative">
-                  <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <select
-                    value={userRoleFilter}
-                    onChange={(e) => setUserRoleFilter(e.target.value)}
-                    className="appearance-none bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-8 py-2 text-sm focus:border-blue-500 outline-none text-slate-200 transition-all cursor-pointer"
-                  >
-                    <option value="all">All Roles</option>
-                    <option value="admin">Super Admin</option>
-                    <option value="user">Pharmacy Owner</option>
-                    <option value="staff">Staff Member</option>
-                  </select>
                 </div>
               </div>
             </div>
 
+            {/* 🛡️ Platform Super Admins Section */}
+            {tenantMatrix?.super_admins && tenantMatrix.super_admins.length > 0 && (
+              <div className="bg-slate-900/60 border border-red-500/20 rounded-2xl p-5 backdrop-blur-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-red-400" />
+                    <h3 className="text-sm font-bold text-red-300 uppercase tracking-wider">System Administrators</h3>
+                    <span className="text-xs font-mono bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full">
+                      {tenantMatrix.super_admins.length} Admins
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {tenantMatrix.super_admins.map((sa: any) => (
+                    <div key={sa.id} className="bg-slate-800/80 border border-slate-700/60 rounded-xl p-3.5 flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                          {(sa.username || 'A').substring(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-200 text-sm truncate">{sa.username}</div>
+                          <div className="text-xs text-slate-400 truncate">{sa.email}</div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full flex-shrink-0">
+                        SUPER ADMIN
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 🏪 Pharmacy Matrix Table */}
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                 <Activity className="w-8 h-8 animate-spin mb-4 text-blue-500" />
-                <p>Loading tenant database...</p>
+                <p>Loading multi-tenant database matrix...</p>
               </div>
             ) : (
               <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm whitespace-nowrap">
-                    <thead className="bg-slate-800/80 text-slate-400 border-b border-slate-700">
+                    <thead className="bg-slate-800/90 text-slate-300 border-b border-slate-700 uppercase text-xs tracking-wider">
                       <tr>
-                        <th className="px-6 py-4 font-semibold">User</th>
-                        <th className="px-6 py-4 font-semibold">Role</th>
-                        <th className="px-6 py-4 font-semibold">Associated Pharmacy & Branch</th>
-                        <th className="px-6 py-4 font-semibold">Status</th>
-                        <th className="px-6 py-4 font-semibold">Subscription</th>
-                        <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                        <th className="px-6 py-4 font-bold">Pharmacy Name</th>
+                        <th className="px-6 py-4 font-bold">Status</th>
+                        <th className="px-6 py-4 font-bold">Subscription</th>
+                        <th className="px-6 py-4 font-bold">Action Buttons</th>
+                        <th className="px-6 py-4 font-bold text-right">Expand (▼)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody className="divide-y divide-slate-800/80">
                       {(() => {
-                        try {
-                          if (!Array.isArray(users)) return <tr><td colSpan={6} className="p-8 text-center text-slate-500">Users data is corrupted or loading.</td></tr>;
-                          
-                          const filtered = users
-                            .filter(u => userRoleFilter === 'all' || u?.role === userRoleFilter)
-                            .filter(u => userSearchQuery === '' || 
-                              (u?.username && u.username.toLowerCase().includes(userSearchQuery.toLowerCase())) || 
-                              (u?.email && u.email.toLowerCase().includes(userSearchQuery.toLowerCase())) ||
-                              (u?.pharmacy_name && u.pharmacy_name.toLowerCase().includes(userSearchQuery.toLowerCase())) ||
-                              (u?.branch_name && u.branch_name.toLowerCase().includes(userSearchQuery.toLowerCase()))
-                            );
+                        const pharmaciesList = tenantMatrix?.pharmacies || [];
+                        const query = userSearchQuery.toLowerCase().trim();
 
-                          if (filtered.length === 0) {
-                            return (
-                              <tr>
-                                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                                  <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                  No users found.
-                                </td>
-                              </tr>
-                            );
-                          }
+                        const filtered = pharmaciesList.filter((p: any) => {
+                          if (!query) return true;
+                          const nameMatch = p.pharmacy_name?.toLowerCase().includes(query);
+                          const cityMatch = p.city?.toLowerCase().includes(query);
+                          const ownerMatch = p.owner && (p.owner.username?.toLowerCase().includes(query) || p.owner.email?.toLowerCase().includes(query));
+                          const staffMatch = p.branches?.some((b: any) =>
+                            b.staff?.some((s: any) => s.username?.toLowerCase().includes(query) || s.email?.toLowerCase().includes(query))
+                          );
+                          return nameMatch || cityMatch || ownerMatch || staffMatch;
+                        });
 
-                          return filtered.map((u) => {
-                            const userPharmacyId = String(u?.pharmacy_id || '');
-                            const ts = (tenantSubscriptions || []).find(
-                              (s) => String(s?.pharmacy) === userPharmacyId
-                            );
-                            const subscriptionLabel = getSubscriptionLabel(ts);
-                            const roleTitle = u?.role_display || (u?.role === 'admin' ? 'Super Admin' : u?.role === 'staff' ? 'Branch Staff' : 'Pharmacy Owner');
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                <Building2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                No pharmacy tenants found matching your query.
+                              </td>
+                            </tr>
+                          );
+                        }
 
-                            return (
-                              <tr key={u.id || Math.random()} className="hover:bg-slate-800/50 transition-colors group">
+                        return filtered.map((p: any) => {
+                          const isExpanded = !!expandedPharmacies[p.pharmacy_id];
+                          const sub = p.subscription;
+
+                          return (
+                            <React.Fragment key={p.pharmacy_id}>
+                              {/* 🏪 MASTER ROW: PHARMACY LEVEL */}
+                              <tr className={`transition-colors ${isExpanded ? 'bg-slate-800/70 border-b-0' : 'hover:bg-slate-800/40'}`}>
+                                {/* Pharmacy Name */}
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
-                                      {(u?.username || 'U').substring(0,2).toUpperCase()}
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-emerald-600 flex items-center justify-center text-white text-lg font-bold shadow-lg shadow-blue-500/10">
+                                      🏪
                                     </div>
                                     <div>
-                                      <div className="font-semibold text-slate-200">{u?.username || 'Unknown'}</div>
-                                      <div className="text-xs text-slate-500 mt-0.5">{u?.email || 'No email'}</div>
-                                    </div>
-                                  </div>
-                                </td>
-
-                                {/* Role Badge */}
-                                <td className="px-6 py-4">
-                                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-                                    u?.role === 'admin' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-                                    u?.role === 'staff' || u?.is_staff_member ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 
-                                    'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                  }`}>
-                                    <span>{u?.role === 'admin' ? '🛡️' : u?.role === 'staff' || u?.is_staff_member ? '👨‍⚕️' : '👑'}</span>
-                                    <span>{roleTitle}</span>
-                                  </span>
-                                </td>
-
-                                {/* Associated Pharmacy & Branch */}
-                                <td className="px-6 py-4">
-                                  {u?.role === 'admin' ? (
-                                    <div className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-                                      <Shield className="w-3.5 h-3.5 text-red-400" /> System-wide Access
-                                    </div>
-                                  ) : u?.pharmacy_name ? (
-                                    <div className="space-y-1">
-                                      <div className="font-medium text-slate-200 text-sm flex items-center gap-1.5">
-                                        <span className="text-base">🏪</span> {u.pharmacy_name}
-                                        {u.is_owner && (
-                                          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 rounded">
-                                            OWNER
+                                      <div className="font-bold text-white text-base flex items-center gap-2">
+                                        {p.pharmacy_name}
+                                        {p.city && (
+                                          <span className="text-xs font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+                                            {p.city}
                                           </span>
                                         )}
                                       </div>
-                                      {u.branch_name ? (
-                                        <div className="text-xs text-slate-400 flex items-center gap-1">
-                                          <span className="text-xs">🏬</span> Branch: <strong className="text-slate-300 font-mono">{u.branch_name}</strong>
-                                        </div>
-                                      ) : u.is_owner ? (
-                                        <div className="text-xs text-slate-500 italic">All Branches</div>
-                                      ) : null}
+                                      <div className="text-xs text-slate-500 font-mono mt-0.5">
+                                        Reg: {p.registration_number || 'N/A'} · ID: {p.pharmacy_id.substring(0, 8)}...
+                                      </div>
                                     </div>
-                                  ) : (
-                                    <div className="text-xs text-slate-500 italic">No Pharmacy Linked</div>
-                                  )}
+                                  </div>
                                 </td>
 
                                 {/* Status */}
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${u?.is_active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-slate-600'}`}></div>
-                                    <span className={u?.is_active ? 'text-emerald-400 font-medium text-xs' : 'text-slate-500 text-xs'}>
-                                      {u?.is_active ? 'Active' : 'Inactive'}
+                                    <div className={`w-2.5 h-2.5 rounded-full ${p.status === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`} />
+                                    <span className={`font-semibold text-xs capitalize ${p.status === 'active' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                      {p.status}
                                     </span>
                                   </div>
                                 </td>
 
                                 {/* Subscription */}
                                 <td className="px-6 py-4">
-                                  {ts ? (
-                                    <div>
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <Layers className={`w-3.5 h-3.5 ${subscriptionLabel.active ? 'text-emerald-400' : 'text-amber-400'}`} />
-                                        <span className={`font-semibold ${subscriptionLabel.active ? 'text-emerald-400' : 'text-amber-400'}`}>{subscriptionLabel.text}</span>
+                                  {sub ? (
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <Layers className={`w-3.5 h-3.5 ${sub.status === 'active' ? 'text-emerald-400' : 'text-amber-400'}`} />
+                                        <span className="font-bold text-white text-sm">{sub.plan_name}</span>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                                          sub.status === 'active' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                                        }`}>
+                                          {sub.status}
+                                        </span>
                                       </div>
-                                      <div className="text-xs text-slate-500">
-                                        Expires: {ts.expires_at ? new Date(ts.expires_at).toLocaleDateString() : 'N/A'}
-                                      </div>
+                                      {sub.days_remaining !== null && sub.days_remaining !== undefined && (
+                                        <div className="text-xs text-slate-400">
+                                          ⏳ <strong className={sub.days_remaining <= 7 ? 'text-amber-400 font-bold' : 'text-slate-300'}>
+                                            {sub.days_remaining} days left
+                                          </strong>
+                                        </div>
+                                      )}
                                     </div>
                                   ) : (
-                                    <div className="text-slate-500 text-xs flex items-center gap-2">
-                                      <XCircle className="w-3.5 h-3.5" /> No active plan
+                                    <div className="text-slate-500 text-xs flex items-center gap-1.5">
+                                      <XCircle className="w-4 h-4 text-slate-500" /> No active subscription
                                     </div>
                                   )}
                                 </td>
 
-                                {/* Actions */}
-                                <td className="px-6 py-4 text-right">
-                                  <div className="flex gap-2 justify-end opacity-100">
-                                    <button onClick={() => handleEditUser(u)} className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all" title="Edit User">
-                                      <Edit className="w-4 h-4" />
-                                    </button>
-                                    {u?.role !== 'admin' && (
-                                      <>
-                                        {u?.role === 'user' ? (
-                                          <button onClick={() => handlePromoteUser(u.id)} className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-400/10 rounded-lg transition-all" title="Promote to Staff">
-                                            <TrendingUp className="w-4 h-4" />
-                                          </button>
-                                        ) : (
-                                          <button onClick={() => handleDemoteUser(u.id)} className="p-2 text-slate-400 hover:text-orange-400 hover:bg-orange-400/10 rounded-lg transition-all" title="Demote to User">
-                                            <TrendingDown className="w-4 h-4" />
-                                          </button>
-                                        )}
-                                        <button onClick={() => handleDeleteUser(u.id)} className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="Delete User">
-                                          <Trash2 className="w-4 h-4" />
-                                        </button>
-                                      </>
-                                    )}
+                                {/* Action Buttons */}
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <Link
+                                      to="/admin/subscriptions"
+                                      className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-semibold transition flex items-center gap-1"
+                                    >
+                                      <CreditCard size={12} /> Renew
+                                    </Link>
                                   </div>
                                 </td>
+
+                                {/* Expand Toggle Button (▼) */}
+                                <td className="px-6 py-4 text-right">
+                                  <button
+                                    onClick={() =>
+                                      setExpandedPharmacies(prev => ({
+                                        ...prev,
+                                        [p.pharmacy_id]: !prev[p.pharmacy_id]
+                                      }))
+                                    }
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 ml-auto ${
+                                      isExpanded
+                                        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20'
+                                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                                    }`}
+                                  >
+                                    <span>{isExpanded ? '▲ Collapse' : '▼ Expand Users'}</span>
+                                    <span className="bg-slate-900/60 px-2 py-0.5 rounded-full text-[11px] font-mono text-slate-200">
+                                      {p.total_users_count}
+                                    </span>
+                                  </button>
+                                </td>
                               </tr>
-                            );
-                          });
-                        } catch (error: any) {
-                          return (
-                            <tr>
-                              <td colSpan={6} className="p-8 text-center text-red-500 font-mono">
-                                <strong>UI Rendering Error:</strong> {error.message}
-                              </td>
-                            </tr>
+
+                              {/* 📂 EXPANDED NESTED SUB-TABLE (USER LEVEL) */}
+                              {isExpanded && (
+                                <tr>
+                                  <td colSpan={5} className="p-0 bg-slate-950/80 border-b-2 border-slate-700/80">
+                                    <div className="p-5 pl-10 space-y-4">
+                                      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                                        <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                                          <span>📂 Users & Staff Roster:</span>
+                                          <span className="text-white">{p.pharmacy_name}</span>
+                                        </h4>
+                                        <span className="text-xs text-slate-500">
+                                          {p.total_users_count} total user{p.total_users_count > 1 ? 's' : ''} linked
+                                        </span>
+                                      </div>
+
+                                      {/* Sub-Table Matrix */}
+                                      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-inner">
+                                        <table className="w-full text-left text-xs whitespace-nowrap">
+                                          <thead className="bg-slate-800/60 text-slate-400 border-b border-slate-800 uppercase text-[11px] tracking-wider">
+                                            <tr>
+                                              <th className="px-5 py-3 font-bold">User & Email</th>
+                                              <th className="px-5 py-3 font-bold">Role</th>
+                                              <th className="px-5 py-3 font-bold">Status</th>
+                                              <th className="px-5 py-3 font-bold text-right">Actions</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-slate-800/60">
+                                            {/* 👑 OWNER ROW */}
+                                            {p.owner ? (
+                                              <tr className="bg-blue-950/20 hover:bg-blue-900/30 transition-colors">
+                                                <td className="px-5 py-3">
+                                                  <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                                                      👑
+                                                    </div>
+                                                    <div>
+                                                      <div className="font-bold text-white text-sm">{p.owner.username}</div>
+                                                      <div className="text-xs text-slate-400 font-mono mt-0.5">{p.owner.email}</div>
+                                                    </div>
+                                                  </div>
+                                                </td>
+                                                <td className="px-5 py-3">
+                                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                    👑 Pharmacy Owner
+                                                  </span>
+                                                </td>
+                                                <td className="px-5 py-3">
+                                                  <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                                                    <span className="w-2 h-2 rounded-full bg-emerald-500" /> Active
+                                                  </span>
+                                                </td>
+                                                <td className="px-5 py-3 text-right">
+                                                  <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                      onClick={() => handleEditUser(p.owner)}
+                                                      className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition"
+                                                      title="Edit User"
+                                                    >
+                                                      <Edit size={14} />
+                                                    </button>
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            ) : (
+                                              <tr>
+                                                <td colSpan={4} className="px-5 py-3 text-slate-500 italic">No owner assigned</td>
+                                              </tr>
+                                            )}
+
+                                            {/* 🏬 BRANCH SECTIONS & STAFF ROWS */}
+                                            {p.branches && p.branches.length > 0 ? (
+                                              p.branches.map((b: any, bIdx: number) => (
+                                                <React.Fragment key={b.branch_id}>
+                                                  {/* Branch Header Row */}
+                                                  <tr className="bg-slate-800/40">
+                                                    <td colSpan={4} className="px-5 py-2 text-xs font-bold text-slate-300 border-t border-b border-slate-800/80 flex items-center gap-2">
+                                                      <span className="text-base">🏬</span>
+                                                      <span>Branch {bIdx + 1}: <strong className="text-white font-mono">{b.branch_name}</strong></span>
+                                                      {b.city && <span className="text-[10px] text-slate-400 font-normal">({b.city})</span>}
+                                                      <span className="ml-auto text-[11px] font-normal text-slate-400">
+                                                        {b.staff ? b.staff.length : 0} staff member{b.staff?.length === 1 ? '' : 's'}
+                                                      </span>
+                                                    </td>
+                                                  </tr>
+
+                                                  {/* Staff Members Rows */}
+                                                  {b.staff && b.staff.length > 0 ? (
+                                                    b.staff.map((s: any) => (
+                                                      <tr key={s.staff_id} className="hover:bg-slate-800/50 transition-colors">
+                                                        <td className="px-5 py-3 pl-8">
+                                                          <div className="flex items-center gap-3">
+                                                            <div className="w-7 h-7 rounded-full bg-purple-600/30 border border-purple-500/40 flex items-center justify-center text-purple-300 font-bold text-xs flex-shrink-0">
+                                                              👨‍⚕️
+                                                            </div>
+                                                            <div>
+                                                              <div className="font-bold text-slate-200 text-sm">
+                                                                {s.username || s.invited_name}
+                                                              </div>
+                                                              <div className="text-xs text-slate-400 font-mono mt-0.5">
+                                                                {s.email || s.invited_email}
+                                                              </div>
+                                                            </div>
+                                                          </div>
+                                                        </td>
+                                                        <td className="px-5 py-3">
+                                                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                                            👨‍⚕️ Staff ({b.branch_name})
+                                                          </span>
+                                                        </td>
+                                                        <td className="px-5 py-3">
+                                                          <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${
+                                                            s.status === 'active' ? 'text-emerald-400' : 'text-amber-400'
+                                                          }`}>
+                                                            <span className={`w-2 h-2 rounded-full ${s.status === 'active' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                                                            <span className="capitalize">{s.status}</span>
+                                                          </span>
+                                                        </td>
+                                                        <td className="px-5 py-3 text-right">
+                                                          <div className="flex items-center justify-end gap-2">
+                                                            {s.id && (
+                                                              <button
+                                                                onClick={() => handleEditUser({ id: s.id, username: s.username, email: s.email, role: 'staff' })}
+                                                                className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition"
+                                                                title="Edit Staff"
+                                                              >
+                                                                <Edit size={14} />
+                                                              </button>
+                                                            )}
+                                                          </div>
+                                                        </td>
+                                                      </tr>
+                                                    ))
+                                                  ) : (
+                                                    <tr>
+                                                      <td colSpan={4} className="px-5 py-2.5 pl-8 text-xs text-slate-500 italic">
+                                                        No staff members assigned to {b.branch_name}
+                                                      </td>
+                                                    </tr>
+                                                  )}
+                                                </React.Fragment>
+                                              ))
+                                            ) : (
+                                              <tr>
+                                                <td colSpan={4} className="px-5 py-3 text-slate-500 italic">No branches registered</td>
+                                              </tr>
+                                            )}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
-                        }
+                        });
                       })()}
                     </tbody>
                   </table>
@@ -1007,89 +1166,89 @@ export const AdminPanel: React.FC = () => {
               </button>
             </div>
 
-              {showPlanForm && (
-                <form onSubmit={createPlan} className="bg-slate-800 p-6 rounded-xl border border-slate-700 mb-6 space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="col-span-2">
-                      <label className="block text-sm text-slate-400 mb-1">Plan Name</label>
-                      <input required type="text" value={newPlan.name} onChange={e => setNewPlan({...newPlan, name: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="e.g. Pro Plan" />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-400 mb-1">Price ($)</label>
-                      <input required type="number" step="0.01" value={newPlan.price} onChange={e => setNewPlan({...newPlan, price: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="99.99" />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-400 mb-1">Duration (Days)</label>
-                      <input required type="number" value={newPlan.duration_days} onChange={e => setNewPlan({...newPlan, duration_days: parseInt(e.target.value)})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm text-slate-400 mb-1">Description</label>
-                      <input type="text" value={newPlan.description} onChange={e => setNewPlan({...newPlan, description: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="Plan description" />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-400 mb-1">Color Theme</label>
-                      <select value={newPlan.color} onChange={e => setNewPlan({...newPlan, color: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2">
-                        <option value="blue">Blue</option>
-                        <option value="purple">Purple</option>
-                        <option value="emerald">Emerald</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center mt-6">
-                      <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                        <input type="checkbox" checked={newPlan.is_popular} onChange={e => setNewPlan({...newPlan, is_popular: e.target.checked})} className="rounded bg-slate-900 border-slate-700" />
-                        Mark as Popular
-                      </label>
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-400 mb-1">Max Medicines</label>
-                      <input type="number" value={newPlan.max_medicines} onChange={e => setNewPlan({...newPlan, max_medicines: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="Unlimited if blank" />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-slate-400 mb-1">Max Customers</label>
-                      <input type="number" value={newPlan.max_customers} onChange={e => setNewPlan({...newPlan, max_customers: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="Unlimited if blank" />
-                    </div>
-                    {newPlan.has_multi_branch && (
-                      <div>
-                        <label className="block text-sm text-emerald-400 mb-1 font-semibold">Max Branches</label>
-                        <input type="number" min="1" value={newPlan.max_branches} onChange={e => setNewPlan({...newPlan, max_branches: parseInt(e.target.value) || 1})} className="w-full bg-slate-900 border border-emerald-500/50 rounded-lg p-2 text-white" />
-                      </div>
-                    )}
-                    <div>
-                      <label className="block text-sm text-blue-400 mb-1 font-semibold">Max Devices Per Branch</label>
-                      <input type="number" min="1" value={newPlan.max_devices_per_branch} onChange={e => setNewPlan({...newPlan, max_devices_per_branch: parseInt(e.target.value) || 1})} className="w-full bg-slate-900 border border-blue-500/50 rounded-lg p-2 text-white" />
-                    </div>
+            {showPlanForm && (
+              <form onSubmit={createPlan} className="bg-slate-800 p-6 rounded-xl border border-slate-700 mb-6 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm text-slate-400 mb-1">Plan Name</label>
+                    <input required type="text" value={newPlan.name} onChange={e => setNewPlan({ ...newPlan, name: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="e.g. Pro Plan" />
                   </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Price ($)</label>
+                    <input required type="number" step="0.01" value={newPlan.price} onChange={e => setNewPlan({ ...newPlan, price: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="99.99" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Duration (Days)</label>
+                    <input required type="number" value={newPlan.duration_days} onChange={e => setNewPlan({ ...newPlan, duration_days: parseInt(e.target.value) })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm text-slate-400 mb-1">Description</label>
+                    <input type="text" value={newPlan.description} onChange={e => setNewPlan({ ...newPlan, description: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="Plan description" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Color Theme</label>
+                    <select value={newPlan.color} onChange={e => setNewPlan({ ...newPlan, color: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2">
+                      <option value="blue">Blue</option>
+                      <option value="purple">Purple</option>
+                      <option value="emerald">Emerald</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center mt-6">
+                    <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                      <input type="checkbox" checked={newPlan.is_popular} onChange={e => setNewPlan({ ...newPlan, is_popular: e.target.checked })} className="rounded bg-slate-900 border-slate-700" />
+                      Mark as Popular
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Max Medicines</label>
+                    <input type="number" value={newPlan.max_medicines} onChange={e => setNewPlan({ ...newPlan, max_medicines: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="Unlimited if blank" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Max Customers</label>
+                    <input type="number" value={newPlan.max_customers} onChange={e => setNewPlan({ ...newPlan, max_customers: e.target.value })} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2" placeholder="Unlimited if blank" />
+                  </div>
+                  {newPlan.has_multi_branch && (
+                    <div>
+                      <label className="block text-sm text-emerald-400 mb-1 font-semibold">Max Branches</label>
+                      <input type="number" min="1" value={newPlan.max_branches} onChange={e => setNewPlan({ ...newPlan, max_branches: parseInt(e.target.value) || 1 })} className="w-full bg-slate-900 border border-emerald-500/50 rounded-lg p-2 text-white" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm text-blue-400 mb-1 font-semibold">Max Devices Per Branch</label>
+                    <input type="number" min="1" value={newPlan.max_devices_per_branch} onChange={e => setNewPlan({ ...newPlan, max_devices_per_branch: parseInt(e.target.value) || 1 })} className="w-full bg-slate-900 border border-blue-500/50 rounded-lg p-2 text-white" />
+                  </div>
+                </div>
 
-                  <div className="mt-4">
-                    <label className="block text-sm font-semibold text-slate-300 mb-3 border-b border-slate-700 pb-2">Feature Flags</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {Object.entries({
-                        has_pos: 'POS & Sales',
-                        has_inventory: 'Inventory',
-                        has_transaction_history: 'Transaction History',
-                        has_dues: 'Dues & Credit',
-                        has_customer_management: 'Customers',
-                        has_analytics: 'Analytics',
-                        has_accounting: 'Accounting',
-                        has_purchase_management: 'Purchases',
-                        has_prescriptions: 'Prescriptions',
-                        has_desktop_app: 'Desktop App',
-                        has_api_access: 'API Access',
-                        has_multi_branch: 'Multi-Branch'
-                      }).map(([key, label]) => (
-                        <label key={key} className="flex items-center gap-2 cursor-pointer text-slate-300 text-sm hover:text-white transition-colors">
-                          <input type="checkbox" checked={(newPlan as any)[key]} onChange={e => setNewPlan({...newPlan, [key]: e.target.checked})} className="rounded bg-slate-900 border-slate-700" />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-slate-300 mb-3 border-b border-slate-700 pb-2">Feature Flags</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {Object.entries({
+                      has_pos: 'POS & Sales',
+                      has_inventory: 'Inventory',
+                      has_transaction_history: 'Transaction History',
+                      has_dues: 'Dues & Credit',
+                      has_customer_management: 'Customers',
+                      has_analytics: 'Analytics',
+                      has_accounting: 'Accounting',
+                      has_purchase_management: 'Purchases',
+                      has_prescriptions: 'Prescriptions',
+                      has_desktop_app: 'Desktop App',
+                      has_api_access: 'API Access',
+                      has_multi_branch: 'Multi-Branch'
+                    }).map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-2 cursor-pointer text-slate-300 text-sm hover:text-white transition-colors">
+                        <input type="checkbox" checked={(newPlan as any)[key]} onChange={e => setNewPlan({ ...newPlan, [key]: e.target.checked })} className="rounded bg-slate-900 border-slate-700" />
+                        {label}
+                      </label>
+                    ))}
                   </div>
-                  <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-semibold mt-4">
-                    {editingPlanId ? 'Update Plan' : 'Save Plan'}
-                  </button>
-                </form>
-              )}
-            
+                </div>
+                <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-semibold mt-4">
+                  {editingPlanId ? 'Update Plan' : 'Save Plan'}
+                </button>
+              </form>
+            )}
+
             {loading ? <p>Loading plans...</p> : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {plans.map((plan) => (
@@ -1108,39 +1267,39 @@ export const AdminPanel: React.FC = () => {
                       </div>
                     </div>
                     <div className="space-y-2 max-h-32 overflow-y-auto pr-2">
-                        {Object.entries({
-                          has_pos: 'POS & Sales',
-                          has_inventory: 'Inventory',
-                          has_transaction_history: 'Transaction History',
-                          has_dues: 'Dues & Credit',
-                          has_customer_management: 'Customers',
-                          has_analytics: 'Analytics',
-                          has_accounting: 'Accounting',
-                          has_purchase_management: 'Purchases',
-                          has_prescriptions: 'Prescriptions',
-                          has_desktop_app: 'Desktop App',
-                          has_api_access: 'API Access',
-                          has_multi_branch: 'Multi-Branch'
-                        }).map(([key, label]) => (
-                           <div key={key} className={`flex items-center gap-2 text-sm ${plan.features_config?.[key] ? 'text-slate-300' : 'text-slate-600'}`}>
-                             {plan.features_config?.[key] ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <XCircle className="w-4 h-4 text-slate-600" />} {label}
-                           </div>
-                        ))}
-                      </div>
-                      <div className="mt-6 pt-4 border-t border-slate-700/80 flex justify-end gap-2">
-                        <button
-                          onClick={() => handleEditPlan(plan)}
-                          className="flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 px-3 py-2 rounded-lg font-semibold transition-all duration-200"
-                        >
-                          <Edit className="w-4 h-4" /> Edit Plan
-                        </button>
-                        <button 
-                          onClick={() => handleDeletePlan(plan.id)} 
-                          className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-3 py-2 rounded-lg font-semibold transition-all duration-200"
-                        >
-                          <Trash2 className="w-4 h-4" /> Delete Plan
-                        </button>
-                      </div>
+                      {Object.entries({
+                        has_pos: 'POS & Sales',
+                        has_inventory: 'Inventory',
+                        has_transaction_history: 'Transaction History',
+                        has_dues: 'Dues & Credit',
+                        has_customer_management: 'Customers',
+                        has_analytics: 'Analytics',
+                        has_accounting: 'Accounting',
+                        has_purchase_management: 'Purchases',
+                        has_prescriptions: 'Prescriptions',
+                        has_desktop_app: 'Desktop App',
+                        has_api_access: 'API Access',
+                        has_multi_branch: 'Multi-Branch'
+                      }).map(([key, label]) => (
+                        <div key={key} className={`flex items-center gap-2 text-sm ${plan.features_config?.[key] ? 'text-slate-300' : 'text-slate-600'}`}>
+                          {plan.features_config?.[key] ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <XCircle className="w-4 h-4 text-slate-600" />} {label}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-slate-700/80 flex justify-end gap-2">
+                      <button
+                        onClick={() => handleEditPlan(plan)}
+                        className="flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 px-3 py-2 rounded-lg font-semibold transition-all duration-200"
+                      >
+                        <Edit className="w-4 h-4" /> Edit Plan
+                      </button>
+                      <button
+                        onClick={() => handleDeletePlan(plan.id)}
+                        className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-3 py-2 rounded-lg font-semibold transition-all duration-200"
+                      >
+                        <Trash2 className="w-4 h-4" /> Delete Plan
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {plans.length === 0 && <p className="text-slate-400 col-span-3">No subscription plans configured.</p>}
@@ -1160,7 +1319,7 @@ export const AdminPanel: React.FC = () => {
           <div>
             <h2 className="text-2xl font-bold mb-2">Pending Approvals & Payments</h2>
             <p className="text-slate-400 mb-6">Review uploaded receipts and payment proofs to activate tenant subscriptions.</p>
-            
+
             {loading ? <p className="text-slate-400">Loading submissions...</p> : (
               <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden">
                 {submissions.filter(s => s.status === 'pending').length === 0 ? (
@@ -1197,7 +1356,7 @@ export const AdminPanel: React.FC = () => {
                                 <span className="flex items-center gap-1 text-amber-400 bg-amber-400/10 px-2 py-1 rounded-full text-xs w-max font-semibold"><Clock className="w-3 h-3" /> Pending</span>
                               </td>
                               <td className="p-4">
-                                <button 
+                                <button
                                   onClick={() => handleViewSubmission(sub)}
                                   className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm font-semibold transition-colors"
                                 >
@@ -1224,7 +1383,7 @@ export const AdminPanel: React.FC = () => {
                       <h3 className="text-2xl font-bold">Payment Review</h3>
                       <p className="text-xs text-slate-500 mt-1">ID: {selectedSubmission.id}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setShowSubmissionModal(false)}
                       className="text-slate-400 hover:text-white text-2xl leading-none hover:bg-slate-700 rounded p-1"
                     >
@@ -1239,80 +1398,80 @@ export const AdminPanel: React.FC = () => {
                       const proofSrc = getSubmissionImageSrc(selectedSubmission);
                       return (
                         <>
-                    {/* User & Pharmacy Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
-                        <h4 className="text-sm font-semibold text-slate-400 mb-3">PHARMACY INFORMATION</h4>
-                        <div className="space-y-2 text-sm">
-                          <div>
-                            <div className="text-slate-500 text-xs">Username</div>
-                            <div className="text-slate-200 font-medium">{modalUser.username}</div>
-                          </div>
-                          <div>
-                            <div className="text-slate-500 text-xs">Email</div>
-                            <div className="text-slate-200 font-medium">{modalUser.email}</div>
-                          </div>
-                          <div>
-                            <div className="text-slate-500 text-xs">Pharmacy ID</div>
-                            <div className="text-slate-200 font-medium font-mono">{modalUser.pharmacyId}</div>
-                          </div>
-                        </div>
-                      </div>
+                          {/* User & Pharmacy Info */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
+                              <h4 className="text-sm font-semibold text-slate-400 mb-3">PHARMACY INFORMATION</h4>
+                              <div className="space-y-2 text-sm">
+                                <div>
+                                  <div className="text-slate-500 text-xs">Username</div>
+                                  <div className="text-slate-200 font-medium">{modalUser.username}</div>
+                                </div>
+                                <div>
+                                  <div className="text-slate-500 text-xs">Email</div>
+                                  <div className="text-slate-200 font-medium">{modalUser.email}</div>
+                                </div>
+                                <div>
+                                  <div className="text-slate-500 text-xs">Pharmacy ID</div>
+                                  <div className="text-slate-200 font-medium font-mono">{modalUser.pharmacyId}</div>
+                                </div>
+                              </div>
+                            </div>
 
-                      {/* Plan & Payment Info */}
-                      <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
-                        <h4 className="text-sm font-semibold text-slate-400 mb-3">PAYMENT DETAILS</h4>
-                        <div className="space-y-2 text-sm">
-                          <div>
-                            <div className="text-slate-500 text-xs">Plan Requested</div>
-                            <div className="text-blue-400 font-bold">{getSubmissionPlanLabel(selectedSubmission)}</div>
+                            {/* Plan & Payment Info */}
+                            <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
+                              <h4 className="text-sm font-semibold text-slate-400 mb-3">PAYMENT DETAILS</h4>
+                              <div className="space-y-2 text-sm">
+                                <div>
+                                  <div className="text-slate-500 text-xs">Plan Requested</div>
+                                  <div className="text-blue-400 font-bold">{getSubmissionPlanLabel(selectedSubmission)}</div>
+                                </div>
+                                <div>
+                                  <div className="text-slate-500 text-xs">Amount Paid</div>
+                                  <div className="text-emerald-400 font-bold text-lg">${selectedSubmission.amount_paid || selectedSubmission.amount || '0'}</div>
+                                </div>
+                                <div>
+                                  <div className="text-slate-500 text-xs">Submitted On</div>
+                                  <div className="text-slate-200 font-medium">{getSubmissionDateLabel(selectedSubmission)}</div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-slate-500 text-xs">Amount Paid</div>
-                            <div className="text-emerald-400 font-bold text-lg">${selectedSubmission.amount_paid || selectedSubmission.amount || '0'}</div>
-                          </div>
-                          <div>
-                            <div className="text-slate-500 text-xs">Submitted On</div>
-                            <div className="text-slate-200 font-medium">{getSubmissionDateLabel(selectedSubmission)}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Payment Proof / Screenshot */}
-                    <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
-                      <h4 className="text-sm font-semibold text-slate-400 mb-3">PAYMENT PROOF</h4>
-                      {proofSrc ? (
-                        <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
-                          <div className="flex items-center justify-center">
-                            <img 
-                              src={proofSrc}
-                              alt="Payment proof"
-                              className="max-w-full h-auto rounded-lg border border-slate-600 max-h-[400px] object-contain"
-                              onError={(e) => {
-                                console.error('Image failed to load');
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
+                          {/* Payment Proof / Screenshot */}
+                          <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
+                            <h4 className="text-sm font-semibold text-slate-400 mb-3">PAYMENT PROOF</h4>
+                            {proofSrc ? (
+                              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                                <div className="flex items-center justify-center">
+                                  <img
+                                    src={proofSrc}
+                                    alt="Payment proof"
+                                    className="max-w-full h-auto rounded-lg border border-slate-600 max-h-[400px] object-contain"
+                                    onError={(e) => {
+                                      console.error('Image failed to load');
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                                <p className="text-xs text-slate-500 mt-2 text-center">Payment receipt uploaded</p>
+                              </div>
+                            ) : (
+                              <div className="bg-slate-900 p-8 rounded-lg border border-slate-700 text-center">
+                                <div className="text-slate-500 mb-2">📷</div>
+                                <p className="text-slate-500 text-sm">No payment proof uploaded</p>
+                                <p className="text-slate-600 text-xs mt-1">User did not attach a payment receipt</p>
+                              </div>
+                            )}
                           </div>
-                          <p className="text-xs text-slate-500 mt-2 text-center">Payment receipt uploaded</p>
-                        </div>
-                      ) : (
-                        <div className="bg-slate-900 p-8 rounded-lg border border-slate-700 text-center">
-                          <div className="text-slate-500 mb-2">📷</div>
-                          <p className="text-slate-500 text-sm">No payment proof uploaded</p>
-                          <p className="text-slate-600 text-xs mt-1">User did not attach a payment receipt</p>
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Review Notes */}
-                    {selectedSubmission.notes && (
-                      <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
-                        <h4 className="text-sm font-semibold text-slate-400 mb-2">NOTES</h4>
-                        <p className="text-slate-300">{selectedSubmission.notes}</p>
-                      </div>
-                    )}
+                          {/* Review Notes */}
+                          {selectedSubmission.notes && (
+                            <div className="bg-slate-700/50 p-4 rounded-lg border border-slate-700">
+                              <h4 className="text-sm font-semibold text-slate-400 mb-2">NOTES</h4>
+                              <p className="text-slate-300">{selectedSubmission.notes}</p>
+                            </div>
+                          )}
 
                         </>
                       );
@@ -1475,7 +1634,7 @@ export const AdminPanel: React.FC = () => {
                           type="text"
                           required
                           value={paymentAccountForm.account_title}
-                          onChange={(e) => setPaymentAccountForm({...paymentAccountForm, account_title: e.target.value})}
+                          onChange={(e) => setPaymentAccountForm({ ...paymentAccountForm, account_title: e.target.value })}
                           placeholder="e.g. Main Business Account"
                           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
                         />
@@ -1487,7 +1646,7 @@ export const AdminPanel: React.FC = () => {
                           type="text"
                           required
                           value={paymentAccountForm.bank_name}
-                          onChange={(e) => setPaymentAccountForm({...paymentAccountForm, bank_name: e.target.value})}
+                          onChange={(e) => setPaymentAccountForm({ ...paymentAccountForm, bank_name: e.target.value })}
                           placeholder="e.g. State Bank of Pakistan"
                           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
                         />
@@ -1499,7 +1658,7 @@ export const AdminPanel: React.FC = () => {
                           type="text"
                           required
                           value={paymentAccountForm.account_number}
-                          onChange={(e) => setPaymentAccountForm({...paymentAccountForm, account_number: e.target.value})}
+                          onChange={(e) => setPaymentAccountForm({ ...paymentAccountForm, account_number: e.target.value })}
                           placeholder="1234567890"
                           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
                         />
@@ -1510,7 +1669,7 @@ export const AdminPanel: React.FC = () => {
                         <input
                           type="text"
                           value={paymentAccountForm.iban}
-                          onChange={(e) => setPaymentAccountForm({...paymentAccountForm, iban: e.target.value})}
+                          onChange={(e) => setPaymentAccountForm({ ...paymentAccountForm, iban: e.target.value })}
                           placeholder="PK123456789"
                           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none"
                         />
@@ -1520,7 +1679,7 @@ export const AdminPanel: React.FC = () => {
                         <label className="block text-sm font-semibold text-slate-300 mb-2">Instructions (Optional)</label>
                         <textarea
                           value={paymentAccountForm.instructions}
-                          onChange={(e) => setPaymentAccountForm({...paymentAccountForm, instructions: e.target.value})}
+                          onChange={(e) => setPaymentAccountForm({ ...paymentAccountForm, instructions: e.target.value })}
                           placeholder="Transfer instructions or additional details..."
                           rows={2}
                           className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-blue-500 outline-none resize-none"
@@ -1580,7 +1739,7 @@ export const AdminPanel: React.FC = () => {
                   <p className="text-sm text-blue-100 mt-1">Update user information, roles, and Super Admin privileges</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setShowUserModal(false)}
                 className="text-blue-100 hover:text-white hover:bg-blue-500/30 p-2 rounded-lg transition-all duration-200"
                 title="Close"
@@ -1607,7 +1766,7 @@ export const AdminPanel: React.FC = () => {
                   <input
                     type="text"
                     value={userFormData.username}
-                    onChange={(e) => setUserFormData({...userFormData, username: e.target.value})}
+                    onChange={(e) => setUserFormData({ ...userFormData, username: e.target.value })}
                     className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 text-white text-sm focus:border-blue-500 focus:bg-slate-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-200 placeholder:text-slate-600"
                     placeholder="Enter username"
                     required
@@ -1623,7 +1782,7 @@ export const AdminPanel: React.FC = () => {
                   <input
                     type="email"
                     value={userFormData.email}
-                    onChange={(e) => setUserFormData({...userFormData, email: e.target.value})}
+                    onChange={(e) => setUserFormData({ ...userFormData, email: e.target.value })}
                     className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 text-white text-sm focus:border-blue-500 focus:bg-slate-900 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-200 placeholder:text-slate-600"
                     placeholder="Enter email address"
                     required
@@ -1638,7 +1797,7 @@ export const AdminPanel: React.FC = () => {
                   </label>
                   <select
                     value={userFormData.role}
-                    onChange={(e) => setUserFormData({...userFormData, role: e.target.value})}
+                    onChange={(e) => setUserFormData({ ...userFormData, role: e.target.value })}
                     className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 text-white text-sm focus:border-purple-500 focus:bg-slate-900 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all duration-200"
                   >
                     <option value="user">👤 Owner - Can manage pharmacy and staff</option>
@@ -1659,7 +1818,7 @@ export const AdminPanel: React.FC = () => {
                   <input
                     type="password"
                     value={userFormData.password}
-                    onChange={(e) => setUserFormData({...userFormData, password: e.target.value})}
+                    onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
                     placeholder="Leave blank to keep current password"
                     className="w-full bg-slate-900/50 border border-slate-600 rounded-lg px-4 py-3 text-white text-sm focus:border-red-500 focus:bg-slate-900 focus:ring-2 focus:ring-red-500/20 outline-none transition-all duration-200 placeholder:text-slate-600"
                   />
