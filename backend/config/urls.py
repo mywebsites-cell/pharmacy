@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse, JsonResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from apps.saas.views import TenantMatrixView
 
 
 def health_check(request):
@@ -61,6 +62,7 @@ urlpatterns = [
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
     
     # API Routes
+    path('api/v1/admin/tenant-matrix/', TenantMatrixView.as_view(), name='tenant-matrix-direct'),
     path('api/v1/admin/', include('apps.saas.urls')),
     path('api/v1/auth/', include('apps.authentication.urls')),
     path('api/v1/pharmacy/', include('apps.pharmacy.urls')),
