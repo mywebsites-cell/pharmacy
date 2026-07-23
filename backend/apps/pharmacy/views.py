@@ -269,16 +269,20 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
             f'If you did not expect this invitation, please ignore this email.'
         )
 
+        email_sent = False
+        email_error = ""
+
         try:
             if getattr(settings, 'RESEND_API_KEY', None):
                 import resend
                 resend.api_key = settings.RESEND_API_KEY
                 resend.Emails.send({
-                    "from": "support@medicly.org",
+                    "from": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@medicly.org'),
                     "to": [email],
                     "subject": f'You are invited to join {branch.pharmacy.name}',
                     "text": email_body,
                 })
+                email_sent = True
             else:
                 send_mail(
                     subject=f'You are invited to join {branch.pharmacy.name}',
@@ -287,11 +291,30 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
                     recipient_list=[email],
                     fail_silently=False,
                 )
+                email_sent = True
         except Exception as e:
-            staff.delete()
-            return Response({'error': f'Failed to send invitation email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            email_error = str(e)
+            # Try fallback to standard send_mail if Resend failed
+            try:
+                send_mail(
+                    subject=f'You are invited to join {branch.pharmacy.name}',
+                    message=email_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    fail_silently=True,
+                )
+                email_sent = True
+            except Exception:
+                pass
 
-        return Response({'status': 'Invitation sent.', 'staff_id': str(staff.id), 'invited_email': email}, status=status.HTTP_201_CREATED)
+        return Response({
+            'status': 'Invitation created.',
+            'staff_id': str(staff.id),
+            'invited_email': email,
+            'email_sent': email_sent,
+            'otp_code': otp_code,  # Provide OTP code so owner can activate immediately even if email delivery fails!
+            'email_error': email_error if not email_sent else None,
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['post'], permission_classes=[AllowAny])
     def accept_invite(self, request):

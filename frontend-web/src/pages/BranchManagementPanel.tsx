@@ -86,14 +86,18 @@ function StatusBadge({ status }: { status: Staff['status'] }) {
 function InviteModal({ branchId, branchName, onClose }: { branchId: string; branchName: string; onClose: () => void }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const qc = useQueryClient();
 
   const invite = useMutation({
     mutationFn: () => api.post('/pharmacy/branch-staff/invite/', { branch_id: branchId, invited_name: name, invited_email: email }),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       setSent(true);
+      if (res?.data?.otp_code) {
+        setOtpCode(res.data.otp_code);
+      }
       qc.invalidateQueries({ queryKey: ['branch-staff', branchId] });
     },
     onError: (e: any) => setError(e?.response?.data?.error || 'Failed to send invitation.'),
@@ -107,11 +111,23 @@ function InviteModal({ branchId, branchName, onClose }: { branchId: string; bran
             <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
               <Mail size={24} className="text-emerald-400" />
             </div>
-            <h3 className="text-lg font-bold text-white mb-2">Invitation Sent!</h3>
-            <p className="text-slate-400 text-sm mb-5">
-              An invitation code was sent to <strong className="text-white">{email}</strong>.<br />
-              <span className="text-amber-300 font-medium">Ask the staff member to share their code with you</span>, then use the <strong className="text-white">"Activate"</strong> button next to their name to complete their account setup.
+            <h3 className="text-lg font-bold text-white mb-2">Invitation Created!</h3>
+            <p className="text-slate-400 text-sm mb-4">
+              An invitation code was sent to <strong className="text-white">{email}</strong>.
             </p>
+
+            {otpCode && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-5 text-center">
+                <p className="text-xs text-amber-300 font-medium mb-1">Staff Activation Code (OTP):</p>
+                <div className="text-2xl font-bold font-mono tracking-widest text-amber-400 select-all">{otpCode}</div>
+                <p className="text-[11px] text-slate-400 mt-1">Use this code to activate the staff member right now.</p>
+              </div>
+            )}
+
+            <p className="text-slate-400 text-xs mb-5">
+              Click <strong className="text-white font-semibold">"Activate"</strong> next to <span className="text-white font-semibold">{name}</span>'s card in the staff list to set up their account.
+            </p>
+
             <button onClick={onClose} className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition text-sm font-medium">
               Done
             </button>

@@ -377,9 +377,15 @@ app.whenReady().then(async () => {
 
   // ── Silent background auto-updater (production only) ──────────────────────────
   if (!isDev) {
+    autoUpdater.logger = console;
     autoUpdater.autoDownload = true;
-    autoUpdater.autoInstallOnAppQuit = false; // We handle install manually for better control
+    autoUpdater.autoInstallOnAppQuit = true; // Automatically installs when user quits the app
     autoUpdater.autoRunAppAfterInstall = true;
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'mywebsites-cell',
+      repo: 'pharmacy',
+    });
 
     // Push events to the renderer so the UI can show a subtle banner
     autoUpdater.on('update-available', (info) => {
@@ -392,12 +398,8 @@ app.whenReady().then(async () => {
     });
 
     autoUpdater.on('update-downloaded', (info) => {
-      console.log('[updater] Update downloaded, ready to install:', info.version);
+      console.log('[updater] Update downloaded, ready to install on restart/quit:', info.version);
       mainWindow?.webContents.send('updater:update-ready', info);
-      // Install silently (isSilent=true, forceRunAfter=true) so no NSIS dialog appears
-      setImmediate(() => {
-        autoUpdater.quitAndInstall(true, true);
-      });
     });
 
     autoUpdater.on('error', (err) => {
@@ -407,17 +409,43 @@ app.whenReady().then(async () => {
     // First check on startup (delayed so the main window is fully loaded)
     setTimeout(() => { 
       if (electronNet.isOnline()) {
-        autoUpdater.checkForUpdates().catch(console.error); 
+        autoUpdater.checkForUpdates().catch((err) => console.log('[updater] Check error:', err.message)); 
       }
     }, 8000);
 
     // Then re-check every 4 hours silently
     setInterval(() => { 
       if (electronNet.isOnline()) {
-        autoUpdater.checkForUpdates().catch(console.error); 
+        autoUpdater.checkForUpdates().catch((err) => console.log('[updater] Check error:', err.message)); 
       }
     }, 4 * 60 * 60 * 1000);
   }
+
+  // ── Auto-updater IPC Handlers ──────────────────────────────────────────────
+  ipcMain.handle('app:check-for-updates', async () => {
+    if (isDev) {
+      return { success: false, error: 'Auto-updater is disabled in development mode.' };
+    }
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      return {
+        success: true,
+        version: result?.updateInfo?.version || app.getVersion(),
+        updateAvailable: result?.updateInfo?.version !== app.getVersion(),
+      };
+    } catch (err: any) {
+      return { success: false, error: err?.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('app:restart-and-install', async () => {
+    try {
+      autoUpdater.quitAndInstall(false, true);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || String(err) };
+    }
+  });
 })
 
 app.on('before-quit', () => {

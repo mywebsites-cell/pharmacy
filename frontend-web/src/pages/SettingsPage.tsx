@@ -328,6 +328,25 @@ export const SettingsPage: React.FC = () => {
                     Check Subscription Status
                   </button>
 
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await (window as any).electronAPI.invoke('app:check-for-updates');
+                        if (res.success) {
+                          alert(res.updateAvailable ? `Update v${res.version} available!` : 'You are running the latest version.');
+                        } else {
+                          alert(`Updater: ${res.error || 'No updates found.'}`);
+                        }
+                      } catch (e: any) {
+                        alert(`Updater: ${e.message || String(e)}`);
+                      }
+                    }}
+                    className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-sm rounded-lg flex items-center justify-center gap-2 transition border border-blue-200"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Check App Updates
+                  </button>
+
                   {desktopLockState?.reason === 'subscription_expired' && (
                     <button
                       onClick={handleRenew}
