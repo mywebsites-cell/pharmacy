@@ -3,15 +3,15 @@ name: Build & Release Desktop App
 on:
   push:
     branches: [main]
-    paths:
-      - 'apps/desktop/**'
-  workflow_dispatch:  # Allow manual trigger from GitHub UI
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-windows:
     runs-on: windows-latest
     permissions:
-      contents: write  # Required to create GitHub Releases
+      contents: write
 
     steps:
       - name: Checkout code
@@ -28,11 +28,27 @@ jobs:
         working-directory: apps/desktop
         run: npm ci
 
-      - name: Build & publish Windows installer
+      - name: Build Windows installer
         working-directory: apps/desktop
+        run: npm run build:win
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v1.0.21
+          name: "v1.0.21 - Owner-Mediated Staff Activation & Subscription Lockout"
+          body: |
+            ### Medicly Desktop v1.0.21 Release
+            - **Owner-Mediated Staff Activation**: Pharmacy Owner enters staff's 6-digit OTP code and sets account credentials.
+            - **Subscription-Gated Staff Access**: Staff accounts are automatically locked when subscription expires and unlocked upon renewal.
+            - **Cloud-First Architecture**: High performance direct cloud API sync.
+          files: |
+            apps/desktop/release/Medicly-setup-1.0.21.exe
+            apps/desktop/release/latest.yml
+          draft: false
+          prerelease: false
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run build:win -- --publish always
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload installer as artifact (backup)
         uses: actions/upload-artifact@v4
