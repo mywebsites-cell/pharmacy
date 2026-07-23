@@ -223,20 +223,80 @@ from rest_framework import serializers
 
 class UserSerializer(serializers.ModelSerializer):
     role = serializers.CharField(read_only=True)
+    role_display = serializers.SerializerMethodField()
     pharmacy_id = serializers.SerializerMethodField()
     pharmacy_name = serializers.SerializerMethodField()
+    branch_id = serializers.SerializerMethodField()
+    branch_name = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
+    is_staff_member = serializers.SerializerMethodField()
+
+    def get_role_display(self, obj):
+        if obj.is_superuser or obj.role == 'admin':
+            return 'Super Admin'
+        from apps.pharmacy.models import BranchStaff
+        if BranchStaff.objects.filter(user=obj).exists() or obj.role == 'staff':
+            return 'Branch Staff'
+        return 'Pharmacy Owner'
 
     def get_pharmacy_id(self, obj):
+        from apps.pharmacy.models import Pharmacy, BranchStaff
         pharmacy = getattr(obj, 'pharmacy', None)
+        if not pharmacy:
+            owned = Pharmacy.all_objects.filter(owner=obj).first()
+            if owned:
+                pharmacy = owned
+        if not pharmacy:
+            staff_rec = BranchStaff.objects.filter(user=obj).select_related('branch__pharmacy').first()
+            if staff_rec and staff_rec.branch:
+                pharmacy = staff_rec.branch.pharmacy
         return str(pharmacy.id) if pharmacy else None
 
     def get_pharmacy_name(self, obj):
+        from apps.pharmacy.models import Pharmacy, BranchStaff
         pharmacy = getattr(obj, 'pharmacy', None)
+        if not pharmacy:
+            owned = Pharmacy.all_objects.filter(owner=obj).first()
+            if owned:
+                pharmacy = owned
+        if not pharmacy:
+            staff_rec = BranchStaff.objects.filter(user=obj).select_related('branch__pharmacy').first()
+            if staff_rec and staff_rec.branch:
+                pharmacy = staff_rec.branch.pharmacy
         return pharmacy.name if pharmacy else None
+
+    def get_branch_id(self, obj):
+        from apps.pharmacy.models import BranchStaff
+        branch = getattr(obj, 'branch', None)
+        if not branch:
+            staff_rec = BranchStaff.objects.filter(user=obj).select_related('branch').first()
+            if staff_rec:
+                branch = staff_rec.branch
+        return str(branch.id) if branch else None
+
+    def get_branch_name(self, obj):
+        from apps.pharmacy.models import BranchStaff
+        branch = getattr(obj, 'branch', None)
+        if not branch:
+            staff_rec = BranchStaff.objects.filter(user=obj).select_related('branch').first()
+            if staff_rec:
+                branch = staff_rec.branch
+        return branch.name if branch else None
+
+    def get_is_owner(self, obj):
+        from apps.pharmacy.models import Pharmacy
+        return Pharmacy.all_objects.filter(owner=obj).exists()
+
+    def get_is_staff_member(self, obj):
+        from apps.pharmacy.models import BranchStaff
+        return BranchStaff.objects.filter(user=obj).exists()
 
     class Meta:
         model = get_user_model()
-        fields = ['id', 'username', 'email', 'role', 'is_active', 'date_joined', 'pharmacy_id', 'pharmacy_name']
+        fields = [
+            'id', 'username', 'email', 'role', 'role_display', 'is_active', 'date_joined',
+            'pharmacy_id', 'pharmacy_name', 'branch_id', 'branch_name', 'is_owner', 'is_staff_member'
+        ]
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = get_user_model().objects.filter(is_active=True)

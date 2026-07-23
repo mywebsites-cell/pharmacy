@@ -807,6 +807,7 @@ export const AdminPanel: React.FC = () => {
                       <tr>
                         <th className="px-6 py-4 font-semibold">User</th>
                         <th className="px-6 py-4 font-semibold">Role</th>
+                        <th className="px-6 py-4 font-semibold">Associated Pharmacy & Branch</th>
                         <th className="px-6 py-4 font-semibold">Status</th>
                         <th className="px-6 py-4 font-semibold">Subscription</th>
                         <th className="px-6 py-4 font-semibold text-right">Actions</th>
@@ -815,19 +816,21 @@ export const AdminPanel: React.FC = () => {
                     <tbody className="divide-y divide-slate-800">
                       {(() => {
                         try {
-                          if (!Array.isArray(users)) return <tr><td colSpan={5} className="p-8 text-center text-slate-500">Users data is corrupted or loading.</td></tr>;
+                          if (!Array.isArray(users)) return <tr><td colSpan={6} className="p-8 text-center text-slate-500">Users data is corrupted or loading.</td></tr>;
                           
                           const filtered = users
                             .filter(u => userRoleFilter === 'all' || u?.role === userRoleFilter)
                             .filter(u => userSearchQuery === '' || 
                               (u?.username && u.username.toLowerCase().includes(userSearchQuery.toLowerCase())) || 
-                              (u?.email && u.email.toLowerCase().includes(userSearchQuery.toLowerCase()))
+                              (u?.email && u.email.toLowerCase().includes(userSearchQuery.toLowerCase())) ||
+                              (u?.pharmacy_name && u.pharmacy_name.toLowerCase().includes(userSearchQuery.toLowerCase())) ||
+                              (u?.branch_name && u.branch_name.toLowerCase().includes(userSearchQuery.toLowerCase()))
                             );
 
                           if (filtered.length === 0) {
                             return (
                               <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                                   <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
                                   No users found.
                                 </td>
@@ -841,6 +844,8 @@ export const AdminPanel: React.FC = () => {
                               (s) => String(s?.pharmacy) === userPharmacyId
                             );
                             const subscriptionLabel = getSubscriptionLabel(ts);
+                            const roleTitle = u?.role_display || (u?.role === 'admin' ? 'Super Admin' : u?.role === 'staff' ? 'Branch Staff' : 'Pharmacy Owner');
+
                             return (
                               <tr key={u.id || Math.random()} className="hover:bg-slate-800/50 transition-colors group">
                                 <td className="px-6 py-4">
@@ -854,23 +859,59 @@ export const AdminPanel: React.FC = () => {
                                     </div>
                                   </div>
                                 </td>
+
+                                {/* Role Badge */}
                                 <td className="px-6 py-4">
-                                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
                                     u?.role === 'admin' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-                                    u?.role === 'staff' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 
+                                    u?.role === 'staff' || u?.is_staff_member ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 
                                     'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                   }`}>
-                                    {u?.role === 'admin' ? 'Super Admin' : u?.role === 'staff' ? 'Staff' : 'Owner'}
+                                    <span>{u?.role === 'admin' ? '🛡️' : u?.role === 'staff' || u?.is_staff_member ? '👨‍⚕️' : '👑'}</span>
+                                    <span>{roleTitle}</span>
                                   </span>
                                 </td>
+
+                                {/* Associated Pharmacy & Branch */}
+                                <td className="px-6 py-4">
+                                  {u?.role === 'admin' ? (
+                                    <div className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+                                      <Shield className="w-3.5 h-3.5 text-red-400" /> System-wide Access
+                                    </div>
+                                  ) : u?.pharmacy_name ? (
+                                    <div className="space-y-1">
+                                      <div className="font-medium text-slate-200 text-sm flex items-center gap-1.5">
+                                        <span className="text-base">🏪</span> {u.pharmacy_name}
+                                        {u.is_owner && (
+                                          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 rounded">
+                                            OWNER
+                                          </span>
+                                        )}
+                                      </div>
+                                      {u.branch_name ? (
+                                        <div className="text-xs text-slate-400 flex items-center gap-1">
+                                          <span className="text-xs">🏬</span> Branch: <strong className="text-slate-300 font-mono">{u.branch_name}</strong>
+                                        </div>
+                                      ) : u.is_owner ? (
+                                        <div className="text-xs text-slate-500 italic">All Branches</div>
+                                      ) : null}
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-slate-500 italic">No Pharmacy Linked</div>
+                                  )}
+                                </td>
+
+                                {/* Status */}
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-2">
                                     <div className={`w-2 h-2 rounded-full ${u?.is_active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-slate-600'}`}></div>
-                                    <span className={u?.is_active ? 'text-emerald-400' : 'text-slate-500'}>
+                                    <span className={u?.is_active ? 'text-emerald-400 font-medium text-xs' : 'text-slate-500 text-xs'}>
                                       {u?.is_active ? 'Active' : 'Inactive'}
                                     </span>
                                   </div>
                                 </td>
+
+                                {/* Subscription */}
                                 <td className="px-6 py-4">
                                   {ts ? (
                                     <div>
@@ -883,11 +924,13 @@ export const AdminPanel: React.FC = () => {
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="text-slate-500 flex items-center gap-2">
+                                    <div className="text-slate-500 text-xs flex items-center gap-2">
                                       <XCircle className="w-3.5 h-3.5" /> No active plan
                                     </div>
                                   )}
                                 </td>
+
+                                {/* Actions */}
                                 <td className="px-6 py-4 text-right">
                                   <div className="flex gap-2 justify-end opacity-100">
                                     <button onClick={() => handleEditUser(u)} className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all" title="Edit User">
@@ -917,7 +960,7 @@ export const AdminPanel: React.FC = () => {
                         } catch (error: any) {
                           return (
                             <tr>
-                              <td colSpan={5} className="p-8 text-center text-red-500 font-mono">
+                              <td colSpan={6} className="p-8 text-center text-red-500 font-mono">
                                 <strong>UI Rendering Error:</strong> {error.message}
                               </td>
                             </tr>
