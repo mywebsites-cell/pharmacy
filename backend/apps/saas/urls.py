@@ -14,6 +14,7 @@ router.register(r'tenant-subscriptions', TenantSubscriptionViewSet, basename='te
 router.register(r'users', UserViewSet, basename='user')
 
 urlpatterns = [
+    path('tenant-matrix/', TenantMatrixView.as_view(), name='tenant-matrix'),
     path('users/tenant_matrix/', TenantMatrixView.as_view(), name='user-tenant-matrix'),
     path('', include(router.urls)),
     path('settings/web-app-status/', WebAppStatusView.as_view(), name='web-app-status'),
