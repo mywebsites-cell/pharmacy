@@ -100,7 +100,13 @@ function InviteModal({ branchId, branchName, onClose }: { branchId: string; bran
       }
       qc.invalidateQueries({ queryKey: ['branch-staff', branchId] });
     },
-    onError: (e: any) => setError(e?.response?.data?.error || 'Failed to send invitation.'),
+    onError: (e: any) => {
+      const data = e?.response?.data;
+      const msg = typeof data === 'string'
+        ? data
+        : data?.error || data?.detail || (Array.isArray(data?.invited_email) ? data.invited_email[0] : null) || (Array.isArray(data?.branch_id) ? data.branch_id[0] : null) || 'Failed to create staff invitation. Please try again.';
+      setError(msg);
+    },
   });
 
   return (

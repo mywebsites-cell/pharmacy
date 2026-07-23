@@ -230,9 +230,18 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
         except Branch.DoesNotExist:
             return Response({'error': 'Branch not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Ownership check: user is superadmin, OR owns the pharmacy directly, OR is assigned via user_role
         user_pharmacy = getattr(request.user, 'pharmacy', None)
-        is_super_admin = hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'SUPER_ADMIN'
-        if branch.pharmacy != user_pharmacy and not is_super_admin:
+        is_super_admin = getattr(request.user, 'is_superuser', False) or (
+            hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'SUPER_ADMIN'
+        )
+        is_owner = (
+            is_super_admin or
+            branch.pharmacy.owner == request.user or
+            (user_pharmacy and branch.pharmacy == user_pharmacy) or
+            (hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'PHARMACY_OWNER')
+        )
+        if not is_owner:
             return Response({'error': 'You do not own this branch.'}, status=status.HTTP_403_FORBIDDEN)
 
         if not is_super_admin:
@@ -344,9 +353,6 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
         is_super_admin = getattr(req_user, 'is_superuser', False) or (
             hasattr(req_user, 'user_role') and req_user.user_role.role.name == 'SUPER_ADMIN'
         )
-        is_owner = hasattr(req_user, 'user_role') and req_user.user_role.role.name == 'PHARMACY_OWNER'
-        if not is_super_admin and not is_owner:
-            return Response({'error': 'Only the pharmacy owner can activate staff.'}, status=status.HTTP_403_FORBIDDEN)
 
         # Fetch the pending staff record
         try:
@@ -354,8 +360,14 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
         except BranchStaff.DoesNotExist:
             return Response({'error': 'No pending staff invitation found with this ID.'}, status=status.HTTP_404_NOT_FOUND)
 
-        if not is_super_admin and staff.branch.pharmacy != user_pharmacy:
-            return Response({'error': 'You do not own the branch this staff belongs to.'}, status=status.HTTP_403_FORBIDDEN)
+        is_owner = (
+            is_super_admin or
+            staff.branch.pharmacy.owner == req_user or
+            (user_pharmacy and staff.branch.pharmacy == user_pharmacy) or
+            (hasattr(req_user, 'user_role') and req_user.user_role.role.name == 'PHARMACY_OWNER')
+        )
+        if not is_owner:
+            return Response({'error': 'Only the pharmacy owner can activate staff for this branch.'}, status=status.HTTP_403_FORBIDDEN)
 
         # Verify the OTP that was sent to the staff's email
         try:
@@ -418,8 +430,16 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
         """Owner revokes a staff member — immediately blocks all their API access."""
         staff = self.get_object()
         user_pharmacy = getattr(request.user, 'pharmacy', None)
-        is_super_admin = hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'SUPER_ADMIN'
-        if staff.branch.pharmacy != user_pharmacy and not is_super_admin:
+        is_super_admin = getattr(request.user, 'is_superuser', False) or (
+            hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'SUPER_ADMIN'
+        )
+        is_owner = (
+            is_super_admin or
+            staff.branch.pharmacy.owner == request.user or
+            (user_pharmacy and staff.branch.pharmacy == user_pharmacy) or
+            (hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'PHARMACY_OWNER')
+        )
+        if not is_owner:
             return Response({'error': 'You do not own this branch.'}, status=status.HTTP_403_FORBIDDEN)
         if staff.user:
             staff.user.is_active = False
@@ -435,8 +455,16 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
         from .serializers import PERMISSION_FIELDS
         staff = self.get_object()
         user_pharmacy = getattr(request.user, 'pharmacy', None)
-        is_super_admin = hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'SUPER_ADMIN'
-        if staff.branch.pharmacy != user_pharmacy and not is_super_admin:
+        is_super_admin = getattr(request.user, 'is_superuser', False) or (
+            hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'SUPER_ADMIN'
+        )
+        is_owner = (
+            is_super_admin or
+            staff.branch.pharmacy.owner == request.user or
+            (user_pharmacy and staff.branch.pharmacy == user_pharmacy) or
+            (hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'PHARMACY_OWNER')
+        )
+        if not is_owner:
             return Response({'error': 'You do not own this branch.'}, status=status.HTTP_403_FORBIDDEN)
         updated = []
         for field in PERMISSION_FIELDS:
