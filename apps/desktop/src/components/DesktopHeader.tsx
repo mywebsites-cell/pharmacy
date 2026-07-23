@@ -37,7 +37,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({ onToggleSidebar })
           >
             <Menu size={22} className="text-gray-600" />
           </button>
-          <span className="font-semibold text-gray-800 text-lg">PharmacyPro</span>
+          <span className="font-semibold text-gray-800 text-lg">Medicly</span>
         </div>
 
         <div className="flex items-center gap-2">

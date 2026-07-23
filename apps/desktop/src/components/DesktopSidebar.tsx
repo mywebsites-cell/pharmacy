@@ -55,7 +55,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ open }) => {
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-2xl flex-shrink-0">💊</span>
             {open && (
-              <span className="font-bold text-lg text-white truncate">PharmacyPro</span>
+              <span className="font-bold text-lg text-white truncate">Medicly</span>
             )}
           </div>
         </div>
@@ -95,7 +95,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ open }) => {
         {/* Footer */}
         {open && (
           <div className="p-4 border-t border-gray-700">
-            <p className="text-xs text-gray-500 text-center">v1.0.0 © 2026 PharmacyPro</p>
+            <p className="text-xs text-gray-500 text-center">v1.0.22 © 2026 Medicly</p>
           </div>
         )}
       </aside>
