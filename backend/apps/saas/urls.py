@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     SubscriptionPlanViewSet, PaymentAccountViewSet,
     PaymentSubmissionViewSet, TenantSubscriptionViewSet, UserViewSet,
-    WebAppStatusView, WebAppToggleView,
+    TenantMatrixView, WebAppStatusView, WebAppToggleView,
 )
 
 router = DefaultRouter()
@@ -14,7 +14,7 @@ router.register(r'tenant-subscriptions', TenantSubscriptionViewSet, basename='te
 router.register(r'users', UserViewSet, basename='user')
 
 urlpatterns = [
-    path('users/tenant_matrix/', UserViewSet.as_view({'get': 'tenant_matrix'}), name='user-tenant-matrix'),
+    path('users/tenant_matrix/', TenantMatrixView.as_view(), name='user-tenant-matrix'),
     path('', include(router.urls)),
     path('settings/web-app-status/', WebAppStatusView.as_view(), name='web-app-status'),
     path('settings/web-app-toggle/', WebAppToggleView.as_view(), name='web-app-toggle'),
