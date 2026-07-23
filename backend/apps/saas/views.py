@@ -373,7 +373,106 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def matrix(self, request):
-        return TenantMatrixView().get(request)
+        try:
+            from apps.pharmacy.models import Pharmacy, Branch, BranchStaff
+            from apps.saas.models import TenantSubscription, PaymentSubmission
+            from django.contrib.auth import get_user_model
+            from django.utils import timezone
+
+            User = get_user_model()
+            pharmacies = Pharmacy.objects.all()
+
+            matrix = []
+            for p in pharmacies:
+                sub = TenantSubscription.objects.filter(pharmacy=p).select_related('plan').first()
+                sub_info = None
+                if sub:
+                    days_left = None
+                    if sub.expires_at:
+                        diff = sub.expires_at - timezone.now()
+                        days_left = max(0, diff.days)
+                    sub_info = {
+                        'plan_id': str(sub.plan.id) if sub.plan else None,
+                        'plan_name': sub.plan.name if sub.plan else 'Custom Plan',
+                        'status': sub.status,
+                        'expires_at': sub.expires_at.isoformat() if sub.expires_at else None,
+                        'days_remaining': days_left,
+                    }
+
+                owner_user = getattr(p, 'owner', None)
+                owner_info = None
+                if owner_user:
+                    owner_info = {
+                        'id': str(owner_user.id),
+                        'username': owner_user.username,
+                        'email': owner_user.email,
+                        'role_display': 'Pharmacy Owner',
+                        'role': 'user',
+                        'is_active': owner_user.is_active,
+                    }
+
+                branches = Branch.objects.filter(pharmacy=p)
+                branches_info = []
+                total_staff_count = 0
+
+                for b in branches:
+                    staff_members = BranchStaff.objects.filter(branch=b).select_related('user')
+                    staff_info = []
+                    for s in staff_members:
+                        total_staff_count += 1
+                        u = s.user
+                        staff_info.append({
+                            'staff_id': str(s.id),
+                            'id': str(u.id) if u else None,
+                            'username': u.username if u else s.invited_name,
+                            'email': u.email if u else s.invited_email,
+                            'invited_name': s.invited_name,
+                            'invited_email': s.invited_email,
+                            'role_display': 'Branch Staff',
+                            'role': 'staff',
+                            'status': s.status,
+                            'is_active': u.is_active if u else (s.status == 'active'),
+                        })
+
+                    branches_info.append({
+                        'branch_id': str(b.id),
+                        'branch_name': b.name,
+                        'branch_code': getattr(b, 'code', ''),
+                        'city': getattr(b, 'city', ''),
+                        'staff': staff_info
+                    })
+
+                matrix.append({
+                    'pharmacy_id': str(p.id),
+                    'pharmacy_name': p.name,
+                    'registration_number': getattr(p, 'registration_number', ''),
+                    'city': getattr(p, 'city', ''),
+                    'status': 'active' if getattr(p, 'is_active', True) else 'inactive',
+                    'subscription': sub_info,
+                    'owner': owner_info,
+                    'branches': branches_info,
+                    'total_users_count': (1 if owner_info else 0) + total_staff_count
+                })
+
+            super_admins = User.objects.filter(is_superuser=True, is_active=True)
+            admin_list = []
+            for sa in super_admins:
+                admin_list.append({
+                    'id': str(sa.id),
+                    'username': sa.username,
+                    'email': sa.email,
+                    'role_display': 'Super Admin',
+                    'role': 'admin',
+                    'is_active': sa.is_active,
+                })
+
+            return Response({
+                'pharmacies': matrix,
+                'super_admins': admin_list
+            })
+        except Exception as e:
+            import traceback
+            return Response({'error': str(e), 'trace': traceback.format_exc()}, status=500)
 
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
