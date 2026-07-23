@@ -393,13 +393,31 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
             'email_sent': email_sent
         })
 
-    @action(detail=False, methods=['post'], permission_classes=[AllowAny])
-    def accept_invite(self, request):
-        """DISABLED — staff no longer self-activate. The Owner must use owner_activate instead."""
-        return Response(
-            {'error': 'Self-service activation is disabled. Ask your pharmacy owner to activate your account via the Owner Dashboard.'},
-            status=status.HTTP_403_FORBIDDEN
-        )
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def verify_otp(self, request):
+        """Owner verifies that the 6-digit OTP code is valid for a pending staff member."""
+        from apps.authentication.models import EmailOTP
+        staff_id = request.data.get('staff_id')
+        otp = request.data.get('otp')
+        if not staff_id or not otp:
+            return Response({'error': 'staff_id and otp are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            staff = BranchStaff.objects.get(id=staff_id, status='pending')
+        except BranchStaff.DoesNotExist:
+            return Response({'error': 'Pending staff invitation not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            email_otp = EmailOTP.objects.get(
+                email=staff.invited_email,
+                otp=otp,
+                purpose='STAFF_INVITATION',
+                expires_at__gt=timezone.now(),
+                is_verified=False,
+            )
+            return Response({'message': 'OTP code verified successfully!', 'verified': True})
+        except EmailOTP.DoesNotExist:
+            return Response({'error': 'Invalid or expired OTP code. Check the code or click Resend.'}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def owner_activate(self, request):

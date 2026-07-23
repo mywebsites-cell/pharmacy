@@ -172,7 +172,10 @@ function InviteModal({ branchId, branchName, onClose }: { branchId: string; bran
 
 // ─── Owner Activate Staff Modal ───────────────────────────────────────────────
 
+// ─── Owner Activate Staff Modal (2-Step Verification) ─────────────────────────
+
 function ActivateStaffModal({ staff, onClose }: { staff: Staff; onClose: () => void }) {
+  const [step, setStep] = useState<'otp' | 'credentials'>('otp');
   const [otp, setOtp] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -180,8 +183,35 @@ function ActivateStaffModal({ staff, onClose }: { staff: Staff; onClose: () => v
   const [showPass, setShowPass] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
+  const [resendNotice, setResendNotice] = useState('');
   const qc = useQueryClient();
 
+  // Step 1: Verify OTP mutation
+  const verifyOtp = useMutation({
+    mutationFn: () => api.post('/pharmacy/branch-staff/verify_otp/', { staff_id: staff.id, otp }),
+    onSuccess: () => {
+      setError('');
+      setStep('credentials');
+    },
+    onError: (e: any) => setError(e?.response?.data?.error || 'Invalid or expired OTP code.'),
+  });
+
+  // Resend OTP mutation
+  const resendOtp = useMutation({
+    mutationFn: () => api.post(`/pharmacy/branch-staff/${staff.id}/resend_otp/`),
+    onSuccess: (res: any) => {
+      setError('');
+      if (res?.data?.otp_code) {
+        setOtp(res.data.otp_code);
+        setResendNotice(`New code generated: ${res.data.otp_code}`);
+      } else {
+        setResendNotice('Fresh OTP sent to staff email.');
+      }
+    },
+    onError: (e: any) => setError(e?.response?.data?.error || 'Failed to resend code.'),
+  });
+
+  // Step 2: Owner activate mutation
   const activate = useMutation({
     mutationFn: () =>
       api.post('/pharmacy/branch-staff/owner_activate/', {
@@ -200,7 +230,7 @@ function ActivateStaffModal({ staff, onClose }: { staff: Staff; onClose: () => v
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
         {done ? (
           <div className="text-center py-4">
             <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
@@ -208,59 +238,145 @@ function ActivateStaffModal({ staff, onClose }: { staff: Staff; onClose: () => v
             </div>
             <h3 className="text-lg font-bold text-white mb-2">Account Activated!</h3>
             <p className="text-slate-400 text-sm mb-1">
-              <strong className="text-white">{staff.invited_name}</strong>'s account is now active.
+              <strong className="text-white">{staff.invited_name}</strong>'s account is active.
             </p>
             <p className="text-slate-500 text-xs mb-5">Share the username with them so they can log in.</p>
             <div className="bg-slate-800 rounded-xl px-4 py-3 mb-5">
-              <p className="text-xs text-slate-500 mb-1">Username</p>
+              <p className="text-xs text-slate-500 mb-1">Assigned Username</p>
               <p className="text-white font-mono font-semibold">{username}</p>
             </div>
-            <button onClick={onClose} className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition text-sm font-medium">Done</button>
+            <button onClick={onClose} className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition text-sm font-medium">
+              Done
+            </button>
           </div>
-        ) : (
+        ) : step === 'otp' ? (
+          /* ── STEP 1: Verify OTP ── */
           <>
-            <h3 className="text-lg font-bold text-white mb-1">Activate {staff.invited_name}</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">Step 1 of 2</span>
+                <h3 className="text-lg font-bold text-white mt-1">Verify OTP Code</h3>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg">✕</button>
+            </div>
             <p className="text-slate-400 text-sm mb-5">
-              Ask <strong className="text-white">{staff.invited_email}</strong> for the 6-digit code they received, then set up their account credentials.
+              Enter the 6-digit activation code sent to <strong className="text-white">{staff.invited_email}</strong>.
             </p>
+
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">OTP Code (from staff's email)</label>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">6-Digit OTP Code</label>
                 <input
-                  value={otp} onChange={e => setOtp(e.target.value)}
+                  value={otp}
+                  onChange={(e) => { setOtp(e.target.value); setError(''); setResendNotice(''); }}
                   placeholder="123456"
                   maxLength={6}
-                  className="w-full px-4 py-2.5 bg-slate-800 border border-amber-500/30 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-amber-400/60 font-mono tracking-widest text-center text-lg"
+                  autoFocus
+                  className="w-full px-4 py-3 bg-slate-800 border border-amber-500/40 text-white placeholder-slate-500 rounded-xl text-xl font-mono tracking-widest text-center focus:outline-none focus:border-amber-400/80 focus:ring-1 focus:ring-amber-400/40"
                 />
               </div>
+
+              {resendNotice && (
+                <p className="text-amber-300 text-xs bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2 text-center font-mono">
+                  {resendNotice}
+                </p>
+              )}
+
+              {error && (
+                <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{error}</p>
+              )}
+
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                <span>Didn't receive code?</span>
+                <button
+                  type="button"
+                  onClick={() => resendOtp.mutate()}
+                  disabled={resendOtp.isPending}
+                  className="text-amber-400 hover:text-amber-300 hover:underline font-medium disabled:opacity-50"
+                >
+                  {resendOtp.isPending ? 'Generating...' : 'Resend OTP Code'}
+                </button>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={onClose} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition">
+                  Cancel
+                </button>
+                <button
+                  onClick={() => verifyOtp.mutate()}
+                  disabled={otp.length !== 6 || verifyOtp.isPending}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-600 hover:to-emerald-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-amber-500/20"
+                >
+                  {verifyOtp.isPending ? 'Verifying...' : 'Verify OTP →'}
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* ── STEP 2: Create Credentials ── */
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Step 2 of 2</span>
+                <h3 className="text-lg font-bold text-white mt-1">Create Staff Credentials</h3>
+              </div>
+              <button onClick={() => setStep('otp')} className="text-xs text-slate-400 hover:text-white underline">← Back</button>
+            </div>
+
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2 mb-4 flex items-center gap-2">
+              <UserCheck size={16} className="text-emerald-400 flex-shrink-0" />
+              <p className="text-xs text-emerald-300">
+                OTP verified for <strong className="text-white">{staff.invited_name}</strong>. Set up their login credentials below:
+              </p>
+            </div>
+
+            <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">Staff Username</label>
-                <input value={username} onChange={e => setUsername(e.target.value)} placeholder="ali_hassan_pos" className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-blue-500/50" />
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="ali_hassan_pos"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-blue-500/50"
+                />
               </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">Password</label>
                 <div className="relative">
                   <input
                     type={showPass ? 'text' : 'password'}
-                    value={password} onChange={e => setPassword(e.target.value)}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min 8 chars, start with capital, _ or @"
                     className="w-full px-4 py-2.5 pr-10 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-blue-500/50"
                   />
-                  <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <button type="button" onClick={() => setShowPass((s) => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
                     {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1.5">Confirm Password</label>
-                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••••" className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-blue-500/50" />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-blue-500/50"
+                />
               </div>
+
               {error && <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{error}</p>}
+
               <div className="flex gap-3 pt-1">
-                <button onClick={onClose} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition">Cancel</button>
+                <button onClick={() => setStep('otp')} className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition">
+                  Back
+                </button>
                 <button
                   onClick={() => activate.mutate()}
-                  disabled={!otp || !username || !password || !confirmPassword || activate.isPending}
+                  disabled={!username || !password || !confirmPassword || activate.isPending}
                   className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-emerald-500/20"
                 >
                   {activate.isPending ? 'Activating…' : 'Activate Account'}

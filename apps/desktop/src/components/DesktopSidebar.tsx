@@ -95,7 +95,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({ open }) => {
         {/* Footer */}
         {open && (
           <div className="p-4 border-t border-gray-700">
-            <p className="text-xs text-gray-500 text-center">v1.0.22 © 2026 Medicly</p>
+            <p className="text-xs text-gray-500 text-center">v1.0.23 © 2026 Medicly</p>
           </div>
         )}
       </aside>
