@@ -128,7 +128,7 @@ class BranchStaffInviteSerializer(serializers.Serializer):
 
 
 class BranchStaffAcceptSerializer(serializers.Serializer):
-    """Payload for a staff member accepting their invite."""
+    """Payload for a staff member accepting their invite (DEPRECATED — kept for backwards compat)."""
     email = serializers.EmailField()
     otp = serializers.CharField(max_length=6)
     username = serializers.CharField(max_length=150)
@@ -139,3 +139,18 @@ class BranchStaffAcceptSerializer(serializers.Serializer):
         if attrs['password'] != attrs['confirm_password']:
             raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
         return attrs
+
+
+class BranchStaffOwnerActivateSerializer(serializers.Serializer):
+    """Payload for the Owner to verify the OTP and create staff credentials."""
+    staff_id = serializers.UUIDField()
+    otp = serializers.CharField(max_length=6)
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
+        return attrs
+

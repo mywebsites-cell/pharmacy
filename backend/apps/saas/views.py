@@ -13,6 +13,30 @@ from .serializers import (
     TenantSubscriptionSerializer
 )
 
+
+def _set_pharmacy_staff_active(pharmacy, active: bool):
+    """
+    Lock or unlock all non-owner staff for a pharmacy.
+    Called when subscription is approved (active=True) or rejected/expired (active=False).
+    """
+    try:
+        from apps.authentication.models import UserRole
+        from apps.common.models import CustomUser
+        # Find all staff UserRoles for this pharmacy (exclude owners and super admins)
+        staff_roles = UserRole.objects.filter(
+            pharmacy=pharmacy
+        ).exclude(
+            role__name__in=['PHARMACY_OWNER', 'SUPER_ADMIN']
+        ).select_related('user')
+
+        user_ids = [ur.user_id for ur in staff_roles if ur.user_id]
+        if user_ids:
+            CustomUser.objects.filter(id__in=user_ids).update(is_active=active)
+            staff_roles.update(is_active=active)
+    except Exception:
+        pass  # Never block the subscription update itself
+
+
 class IsSuperAdmin(permissions.BasePermission):
     """
     Allows access only to Super Admins.
@@ -145,6 +169,9 @@ class PaymentSubmissionViewSet(viewsets.ModelViewSet):
                 subscription.expires_at = timezone.now() + timedelta(days=submission.plan.duration_days)
             subscription.save()
 
+        # Unlock all staff for this pharmacy when subscription is activated
+        _set_pharmacy_staff_active(submission.pharmacy, active=True)
+
         return Response({'detail': 'Submission approved and subscription activated.'})
 
     @action(detail=True, methods=['post'], permission_classes=[IsSuperAdmin])
@@ -158,6 +185,13 @@ class PaymentSubmissionViewSet(viewsets.ModelViewSet):
         submission.processed_by = request.user
         # You could also save a rejection reason if added to the model
         submission.save()
+
+        # If no active subscription exists, lock all staff
+        active_sub = TenantSubscription.objects.filter(
+            pharmacy=submission.pharmacy, status='active'
+        ).first()
+        if not active_sub:
+            _set_pharmacy_staff_active(submission.pharmacy, active=False)
 
         return Response({'detail': 'Submission rejected.'})
 

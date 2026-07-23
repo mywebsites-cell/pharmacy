@@ -109,8 +109,8 @@ function InviteModal({ branchId, branchName, onClose }: { branchId: string; bran
             </div>
             <h3 className="text-lg font-bold text-white mb-2">Invitation Sent!</h3>
             <p className="text-slate-400 text-sm mb-5">
-              An invitation email with a 6-digit code was sent to <strong className="text-white">{email}</strong>.<br />
-              They must visit <strong className="text-white">/staff/activate</strong> to complete registration.
+              An invitation code was sent to <strong className="text-white">{email}</strong>.<br />
+              <span className="text-amber-300 font-medium">Ask the staff member to share their code with you</span>, then use the <strong className="text-white">"Activate"</strong> button next to their name to complete their account setup.
             </p>
             <button onClick={onClose} className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition text-sm font-medium">
               Done
@@ -148,6 +148,109 @@ function InviteModal({ branchId, branchName, onClose }: { branchId: string; bran
   );
 }
 
+// ─── Owner Activate Staff Modal ───────────────────────────────────────────────
+
+function ActivateStaffModal({ staff, onClose }: { staff: Staff; onClose: () => void }) {
+  const [otp, setOtp] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+  const qc = useQueryClient();
+
+  const activate = useMutation({
+    mutationFn: () =>
+      api.post('/pharmacy/branch-staff/owner_activate/', {
+        staff_id: staff.id,
+        otp,
+        username,
+        password,
+        confirm_password: confirmPassword,
+      }),
+    onSuccess: () => {
+      setDone(true);
+      qc.invalidateQueries({ queryKey: ['branch-staff'] });
+    },
+    onError: (e: any) => setError(e?.response?.data?.error || 'Activation failed. Please try again.'),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        {done ? (
+          <div className="text-center py-4">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
+              <UserCheck size={24} className="text-emerald-400" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">Account Activated!</h3>
+            <p className="text-slate-400 text-sm mb-1">
+              <strong className="text-white">{staff.invited_name}</strong>'s account is now active.
+            </p>
+            <p className="text-slate-500 text-xs mb-5">Share the username with them so they can log in.</p>
+            <div className="bg-slate-800 rounded-xl px-4 py-3 mb-5">
+              <p className="text-xs text-slate-500 mb-1">Username</p>
+              <p className="text-white font-mono font-semibold">{username}</p>
+            </div>
+            <button onClick={onClose} className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition text-sm font-medium">Done</button>
+          </div>
+        ) : (
+          <>
+            <h3 className="text-lg font-bold text-white mb-1">Activate {staff.invited_name}</h3>
+            <p className="text-slate-400 text-sm mb-5">
+              Ask <strong className="text-white">{staff.invited_email}</strong> for the 6-digit code they received, then set up their account credentials.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">OTP Code (from staff's email)</label>
+                <input
+                  value={otp} onChange={e => setOtp(e.target.value)}
+                  placeholder="123456"
+                  maxLength={6}
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-amber-500/30 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-amber-400/60 font-mono tracking-widest text-center text-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Staff Username</label>
+                <input value={username} onChange={e => setUsername(e.target.value)} placeholder="ali_hassan_pos" className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-blue-500/50" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="Min 8 chars, start with capital, _ or @"
+                    className="w-full px-4 py-2.5 pr-10 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-blue-500/50"
+                  />
+                  <button type="button" onClick={() => setShowPass(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Confirm Password</label>
+                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••••" className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl text-sm focus:outline-none focus:border-blue-500/50" />
+              </div>
+              {error && <p className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{error}</p>}
+              <div className="flex gap-3 pt-1">
+                <button onClick={onClose} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition">Cancel</button>
+                <button
+                  onClick={() => activate.mutate()}
+                  disabled={!otp || !username || !password || !confirmPassword || activate.isPending}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-emerald-500/20"
+                >
+                  {activate.isPending ? 'Activating…' : 'Activate Account'}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 // ─── Edit Branch Modal ────────────────────────────────────────────────────────
 
 function EditBranchModal({ branch, onClose }: { branch: Branch; onClose: () => void }) {
@@ -207,6 +310,7 @@ function StaffRow({ staff, branchPharmacy }: { staff: Staff; branchPharmacy: str
   const [expanded, setExpanded] = useState(false);
   const [perms, setPerms] = useState(staff);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [activating, setActivating] = useState(false);
   const qc = useQueryClient();
 
   const revoke = useMutation({
@@ -221,6 +325,7 @@ function StaffRow({ staff, branchPharmacy }: { staff: Staff; branchPharmacy: str
 
   return (
     <div className="bg-slate-800/40 rounded-xl border border-slate-700/40 overflow-hidden">
+      {activating && <ActivateStaffModal staff={staff} onClose={() => setActivating(false)} />}
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
           {staff.invited_name.charAt(0).toUpperCase()}
@@ -240,6 +345,16 @@ function StaffRow({ staff, branchPharmacy }: { staff: Staff; branchPharmacy: str
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Pending: show Activate button */}
+          {staff.status === 'pending' && (
+            <button
+              onClick={() => setActivating(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-semibold transition shadow-lg shadow-emerald-500/20"
+              title="Activate this staff member"
+            >
+              <ShieldCheck size={13} /> Activate
+            </button>
+          )}
           {staff.status !== 'revoked' && (
             <>
               <button
@@ -631,7 +746,7 @@ export default function BranchManagementPanel() {
       {/* How it works hint */}
       <div className="mt-8 p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl">
         <p className="text-xs text-blue-300/70 text-center">
-          💡 <strong>How it works:</strong> Invite staff → They receive an OTP code via email → They activate their account at <code className="bg-blue-500/10 px-1 rounded">/staff/activate</code> → They log in and see only the modules you've enabled.
+          💡 <strong>How it works:</strong> Invite staff → They receive an OTP code via email → They <span className="text-amber-300 font-medium">verbally share the OTP with you</span> → Click <strong>"Activate"</strong> on their card and set their username &amp; password → They log in. Staff can reset their own password anytime via "Forgot Password".
         </p>
       </div>
     </div>

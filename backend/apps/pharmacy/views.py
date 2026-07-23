@@ -2,11 +2,13 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.utils import timezone
 from .models import Pharmacy, Branch, BranchSettings, License, TaxConfiguration, BranchDevice, BranchStaff
 from .serializers import (
     PharmacySerializer, BranchSerializer, BranchSettingsSerializer,
     LicenseSerializer, TaxConfigurationSerializer, BranchCreateSerializer,
     BranchDeviceSerializer, BranchStaffSerializer, BranchStaffInviteSerializer, BranchStaffAcceptSerializer,
+    BranchStaffOwnerActivateSerializer,
 )
 from apps.common.models import CustomUser
 
@@ -187,7 +189,15 @@ class BranchViewSet(viewsets.ModelViewSet):
 
 
 class BranchStaffViewSet(viewsets.ModelViewSet):
-    """Manage staff members per branch (staff = access-controlled 'devices')."""
+    """Manage staff members per branch (staff = access-controlled 'devices').
+
+    New flow (owner-mediated):
+      1. Owner invites staff email → OTP sent to staff's email.
+      2. Staff reads OTP and gives it verbally/physically to the Owner.
+      3. Owner calls owner_activate with: staff_id, OTP, desired username, password.
+      4. Staff account created; staff logs in with owner-set credentials.
+      5. Staff can later use "Forgot Password" to reset on their own.
+    """
     serializer_class = BranchStaffSerializer
     permission_classes = [IsAuthenticated]
 
@@ -208,7 +218,6 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
         from apps.authentication.models import EmailOTP
         from django.core.mail import send_mail
         from django.conf import settings
-        from django.utils import timezone
         from datetime import timedelta
         import random
 
@@ -227,10 +236,10 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
             return Response({'error': 'You do not own this branch.'}, status=status.HTTP_403_FORBIDDEN)
 
         if not is_super_admin:
-            pharmacy = branch.pharmacy
+            pharmacy_obj = branch.pharmacy
             max_staff = 1
-            if hasattr(pharmacy, 'subscription') and pharmacy.subscription and pharmacy.subscription.plan:
-                max_staff = pharmacy.subscription.plan.max_devices_per_branch
+            if hasattr(pharmacy_obj, 'subscription') and pharmacy_obj.subscription and pharmacy_obj.subscription.plan:
+                max_staff = pharmacy_obj.subscription.plan.max_devices_per_branch
             active_staff = BranchStaff.objects.filter(branch=branch, status__in=['pending', 'active']).count()
             if active_staff >= max_staff:
                 return Response({'error': f'Staff limit of {max_staff} reached for this branch.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -251,8 +260,16 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
         EmailOTP.objects.filter(email=email, purpose='STAFF_INVITATION').delete()
         EmailOTP.objects.create(email=email, otp=otp_code, purpose='STAFF_INVITATION', expires_at=expiry)
 
+        email_body = (
+            f'Hi {data["invited_name"]},\n\n'
+            f'You have been invited to join {branch.name} ({branch.pharmacy.name}) as a staff member.\n\n'
+            f'Your invitation code is: {otp_code}\n\n'
+            f'Please give this code to your pharmacy owner — they will complete your account setup.\n\n'
+            f'This code expires in 30 minutes.\n\n'
+            f'If you did not expect this invitation, please ignore this email.'
+        )
+
         try:
-            from django.conf import settings
             if getattr(settings, 'RESEND_API_KEY', None):
                 import resend
                 resend.api_key = settings.RESEND_API_KEY
@@ -260,24 +277,12 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
                     "from": "support@medicly.org",
                     "to": [email],
                     "subject": f'You are invited to join {branch.pharmacy.name}',
-                    "text": (
-                        f'Hi {data["invited_name"]},\n\n'
-                        f'You have been invited to join {branch.name} ({branch.pharmacy.name}) as a staff member.\n\n'
-                        f'Your invitation code is: {otp_code}\n\n'
-                        f'This code expires in 30 minutes. Visit the app and go to Staff Activation to complete your registration.\n\n'
-                        f'If you did not expect this invitation, please ignore this email.'
-                    )
+                    "text": email_body,
                 })
             else:
                 send_mail(
                     subject=f'You are invited to join {branch.pharmacy.name}',
-                    message=(
-                        f'Hi {data["invited_name"]},\n\n'
-                        f'You have been invited to join {branch.name} ({branch.pharmacy.name}) as a staff member.\n\n'
-                        f'Your invitation code is: {otp_code}\n\n'
-                        f'This code expires in 30 minutes. Visit the app and go to Staff Activation to complete your registration.\n\n'
-                        f'If you did not expect this invitation, please ignore this email.'
-                    ),
+                    message=email_body,
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[email],
                     fail_silently=False,
@@ -290,29 +295,61 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], permission_classes=[AllowAny])
     def accept_invite(self, request):
-        """Staff accepts the invitation by submitting OTP + choosing a username & password."""
-        from apps.authentication.models import EmailOTP
-        from apps.authentication.views import validate_custom_password
-        from django.utils import timezone
-        from rest_framework_simplejwt.tokens import RefreshToken
+        """DISABLED — staff no longer self-activate. The Owner must use owner_activate instead."""
+        return Response(
+            {'error': 'Self-service activation is disabled. Ask your pharmacy owner to activate your account via the Owner Dashboard.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
 
-        serializer = BranchStaffAcceptSerializer(data=request.data)
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def owner_activate(self, request):
+        """
+        Owner verifies the OTP (received by staff) and creates the staff account credentials.
+        Only the pharmacy owner or super admin can call this.
+        """
+        from apps.authentication.models import EmailOTP, Role, UserRole
+        from apps.authentication.views import validate_custom_password
+        from django.db import transaction as db_transaction
+
+        serializer = BranchStaffOwnerActivateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        # Permission check
+        req_user = request.user
+        user_pharmacy = getattr(req_user, 'pharmacy', None)
+        is_super_admin = getattr(req_user, 'is_superuser', False) or (
+            hasattr(req_user, 'user_role') and req_user.user_role.role.name == 'SUPER_ADMIN'
+        )
+        is_owner = hasattr(req_user, 'user_role') and req_user.user_role.role.name == 'PHARMACY_OWNER'
+        if not is_super_admin and not is_owner:
+            return Response({'error': 'Only the pharmacy owner can activate staff.'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Fetch the pending staff record
+        try:
+            staff = BranchStaff.objects.get(id=data['staff_id'], status='pending')
+        except BranchStaff.DoesNotExist:
+            return Response({'error': 'No pending staff invitation found with this ID.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not is_super_admin and staff.branch.pharmacy != user_pharmacy:
+            return Response({'error': 'You do not own the branch this staff belongs to.'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Verify the OTP that was sent to the staff's email
         try:
             email_otp = EmailOTP.objects.get(
-                email=data['email'], otp=data['otp'], purpose='STAFF_INVITATION',
-                expires_at__gt=timezone.now(), is_verified=False,
+                email=staff.invited_email,
+                otp=data['otp'],
+                purpose='STAFF_INVITATION',
+                expires_at__gt=timezone.now(),
+                is_verified=False,
             )
         except EmailOTP.DoesNotExist:
-            return Response({'error': 'Invalid or expired invitation code.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'Invalid or expired OTP. Please re-invite the staff member to get a fresh code.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        try:
-            staff = BranchStaff.objects.get(invited_email=data['email'], status='pending')
-        except BranchStaff.DoesNotExist:
-            return Response({'error': 'No pending invitation found for this email.'}, status=status.HTTP_400_BAD_REQUEST)
-
+        # Validate password strength
         is_ok, err = validate_custom_password(data['password'])
         if not is_ok:
             return Response({'error': err}, status=status.HTTP_400_BAD_REQUEST)
@@ -320,32 +357,35 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
         if CustomUser.objects.filter(username__iexact=data['username']).exists():
             return Response({'error': 'Username already taken. Please choose another.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        from django.db import transaction
-        from apps.authentication.models import Role, UserRole
-
         try:
-            with transaction.atomic():
-                user = CustomUser.objects.create_user(
-                    username=data['username'], email=data['email'], password=data['password'],
+            with db_transaction.atomic():
+                user_account = CustomUser.objects.create_user(
+                    username=data['username'],
+                    email=staff.invited_email,
+                    password=data['password'],
+                    first_name=staff.invited_name,
                 )
                 pharmacist_role, _ = Role.objects.get_or_create(
-                    name='PHARMACIST', defaults={'description': 'Branch Staff / Pharmacist'}
+                    name='PHARMACIST',
+                    defaults={'description': 'Branch Staff / Pharmacist'}
                 )
                 UserRole.objects.create(
-                    user=user, role=pharmacist_role,
-                    pharmacy=staff.branch.pharmacy, branch=staff.branch, is_active=True,
+                    user=user_account,
+                    role=pharmacist_role,
+                    pharmacy=staff.branch.pharmacy,
+                    branch=staff.branch,
+                    is_active=True,
                 )
-                staff.user = user
+                staff.user = user_account
                 staff.status = 'active'
-                staff.save()
+                staff.save(update_fields=['user', 'status', 'updated_at'])
                 email_otp.is_verified = True
-                email_otp.save()
-                refresh = RefreshToken.for_user(user)
+                email_otp.save(update_fields=['is_verified'])
+
                 return Response({
-                    'message': 'Account activated successfully. You can now log in.',
-                    'access': str(refresh.access_token),
-                    'refresh': str(refresh),
-                    'username': user.username,
+                    'message': f'Staff account for {staff.invited_name} activated successfully.',
+                    'username': user_account.username,
+                    'staff_id': str(staff.id),
                 }, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'error': f'Activation failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -353,7 +393,6 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def revoke(self, request, pk=None):
         """Owner revokes a staff member — immediately blocks all their API access."""
-        from django.utils import timezone
         staff = self.get_object()
         user_pharmacy = getattr(request.user, 'pharmacy', None)
         is_super_admin = hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'SUPER_ADMIN'
@@ -417,7 +456,6 @@ class LicenseViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def expiring_soon(self, request):
-        from django.utils import timezone
         from datetime import timedelta
         soon = timezone.now().date() + timedelta(days=30)
         licenses = License.objects.filter(expiry_date__lte=soon, expiry_date__gte=timezone.now().date(), is_active=True)

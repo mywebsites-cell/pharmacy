@@ -557,16 +557,9 @@ export const ActivationScreen: React.FC<Props> = ({ onSuccess }) => {
           </div>
         </div>
 
-        {/* Staff activation link */}
-        <p className="text-center text-slate-500 text-xs mt-4">
-          New staff member?{' '}
-          <button
-            type="button"
-            onClick={() => { setSaEmail(''); setSaError(''); setScreen('staff-email'); }}
-            className="text-blue-400 hover:text-blue-300 hover:underline focus:outline-none font-medium"
-          >
-            Activate your account
-          </button>
+        {/* Staff account info */}
+        <p className="text-center text-slate-600 text-xs mt-4">
+          New staff member? Ask your pharmacy owner to activate your account.
         </p>
       </PageWrapper>
     );
