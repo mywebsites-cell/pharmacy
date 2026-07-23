@@ -223,85 +223,149 @@ from rest_framework import serializers
 
 class UserSerializer(serializers.ModelSerializer):
     role = serializers.CharField(read_only=True)
-    role_display = serializers.SerializerMethodField()
     pharmacy_id = serializers.SerializerMethodField()
     pharmacy_name = serializers.SerializerMethodField()
-    branch_id = serializers.SerializerMethodField()
-    branch_name = serializers.SerializerMethodField()
-    is_owner = serializers.SerializerMethodField()
-    is_staff_member = serializers.SerializerMethodField()
-
-    def get_role_display(self, obj):
-        if obj.is_superuser or obj.role == 'admin':
-            return 'Super Admin'
-        from apps.pharmacy.models import BranchStaff
-        if BranchStaff.objects.filter(user=obj).exists() or obj.role == 'staff':
-            return 'Branch Staff'
-        return 'Pharmacy Owner'
 
     def get_pharmacy_id(self, obj):
-        from apps.pharmacy.models import Pharmacy, BranchStaff
         pharmacy = getattr(obj, 'pharmacy', None)
-        if not pharmacy:
-            owned = Pharmacy.all_objects.filter(owner=obj).first()
-            if owned:
-                pharmacy = owned
-        if not pharmacy:
-            staff_rec = BranchStaff.objects.filter(user=obj).select_related('branch__pharmacy').first()
-            if staff_rec and staff_rec.branch:
-                pharmacy = staff_rec.branch.pharmacy
         return str(pharmacy.id) if pharmacy else None
 
     def get_pharmacy_name(self, obj):
-        from apps.pharmacy.models import Pharmacy, BranchStaff
         pharmacy = getattr(obj, 'pharmacy', None)
-        if not pharmacy:
-            owned = Pharmacy.all_objects.filter(owner=obj).first()
-            if owned:
-                pharmacy = owned
-        if not pharmacy:
-            staff_rec = BranchStaff.objects.filter(user=obj).select_related('branch__pharmacy').first()
-            if staff_rec and staff_rec.branch:
-                pharmacy = staff_rec.branch.pharmacy
         return pharmacy.name if pharmacy else None
-
-    def get_branch_id(self, obj):
-        from apps.pharmacy.models import BranchStaff
-        branch = getattr(obj, 'branch', None)
-        if not branch:
-            staff_rec = BranchStaff.objects.filter(user=obj).select_related('branch').first()
-            if staff_rec:
-                branch = staff_rec.branch
-        return str(branch.id) if branch else None
-
-    def get_branch_name(self, obj):
-        from apps.pharmacy.models import BranchStaff
-        branch = getattr(obj, 'branch', None)
-        if not branch:
-            staff_rec = BranchStaff.objects.filter(user=obj).select_related('branch').first()
-            if staff_rec:
-                branch = staff_rec.branch
-        return branch.name if branch else None
-
-    def get_is_owner(self, obj):
-        from apps.pharmacy.models import Pharmacy
-        return Pharmacy.all_objects.filter(owner=obj).exists()
-
-    def get_is_staff_member(self, obj):
-        from apps.pharmacy.models import BranchStaff
-        return BranchStaff.objects.filter(user=obj).exists()
 
     class Meta:
         model = get_user_model()
-        fields = [
-            'id', 'username', 'email', 'role', 'role_display', 'is_active', 'date_joined',
-            'pharmacy_id', 'pharmacy_name', 'branch_id', 'branch_name', 'is_owner', 'is_staff_member'
-        ]
+        fields = ['id', 'username', 'email', 'role', 'is_active', 'date_joined', 'pharmacy_id', 'pharmacy_name']
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = get_user_model().objects.filter(is_active=True)
     serializer_class = UserSerializer
     permission_classes = [IsSuperAdmin]
+
+    @action(detail=False, methods=['get'])
+    def tenant_matrix(self, request):
+        """
+        Returns a structured multi-tenant tree of Pharmacies, Subscriptions, Owners, Branches, and Staff
+        for the Super Admin Collapsible Matrix view.
+        """
+        from apps.pharmacy.models import Pharmacy, Branch, BranchStaff
+        from apps.saas.models import TenantSubscription, PaymentSubmission
+        from django.contrib.auth import get_user_model
+        from django.utils import timezone
+
+        User = get_user_model()
+        pharmacies = Pharmacy.all_objects.filter(is_deleted=False).select_related('owner')
+
+        matrix = []
+
+        for p in pharmacies:
+            # Active subscription details
+            sub = TenantSubscription.objects.filter(pharmacy=p).select_related('plan').first()
+            sub_info = None
+            if sub:
+                days_left = None
+                if sub.expires_at:
+                    diff = sub.expires_at - timezone.now()
+                    days_left = max(0, diff.days)
+                sub_info = {
+                    'plan_id': str(sub.plan.id) if sub.plan else None,
+                    'plan_name': sub.plan.name if sub.plan else 'Custom Plan',
+                    'status': sub.status,
+                    'expires_at': sub.expires_at.isoformat() if sub.expires_at else None,
+                    'days_remaining': days_left,
+                    'max_branches': sub.plan.max_branches if sub.plan else 1,
+                    'max_devices_per_branch': sub.plan.max_devices_per_branch if sub.plan else 1,
+                }
+            else:
+                # Check for pending payment submission
+                pending_sub = PaymentSubmission.objects.filter(pharmacy=p, status='pending').first()
+                if pending_sub:
+                    sub_info = {
+                        'plan_name': pending_sub.plan.name if pending_sub.plan else 'Pending Approval',
+                        'status': 'pending',
+                        'expires_at': None,
+                        'days_remaining': None,
+                    }
+
+            # Owner details
+            owner_user = p.owner
+            owner_info = None
+            if owner_user:
+                owner_info = {
+                    'id': str(owner_user.id),
+                    'username': owner_user.username,
+                    'email': owner_user.email,
+                    'role_display': 'Pharmacy Owner',
+                    'role': 'user',
+                    'is_active': owner_user.is_active,
+                    'date_joined': owner_user.date_joined.isoformat() if owner_user.date_joined else None,
+                }
+
+            # Branch details & staff members
+            branches = Branch.objects.filter(pharmacy=p, is_active=True)
+            branches_info = []
+            total_staff_count = 0
+
+            for b in branches:
+                staff_members = BranchStaff.objects.filter(branch=b).select_related('user')
+                staff_info = []
+                for s in staff_members:
+                    total_staff_count += 1
+                    u = s.user
+                    staff_info.append({
+                        'staff_id': str(s.id),
+                        'id': str(u.id) if u else None,
+                        'username': u.username if u else s.invited_name,
+                        'email': u.email if u else s.invited_email,
+                        'invited_name': s.invited_name,
+                        'invited_email': s.invited_email,
+                        'role_display': 'Branch Staff',
+                        'role': 'staff',
+                        'status': s.status,  # 'active', 'pending', 'revoked'
+                        'is_active': u.is_active if u else (s.status == 'active'),
+                        'can_access_pos': s.can_access_pos,
+                        'can_access_inventory': s.can_access_inventory,
+                    })
+
+                branches_info.append({
+                    'branch_id': str(b.id),
+                    'branch_name': b.name,
+                    'branch_code': b.code,
+                    'city': b.city,
+                    'staff': staff_info
+                })
+
+            matrix.append({
+                'pharmacy_id': str(p.id),
+                'pharmacy_name': p.name,
+                'registration_number': p.registration_number,
+                'city': p.city,
+                'status': 'active' if p.is_active else 'inactive',
+                'subscription': sub_info,
+                'owner': owner_info,
+                'branches': branches_info,
+                'total_users_count': (1 if owner_info else 0) + total_staff_count
+            })
+
+        # Platform Super Admins section
+        super_admins = User.objects.filter(is_superuser=True, is_active=True)
+        admin_list = []
+        for sa in super_admins:
+            admin_list.append({
+                'id': str(sa.id),
+                'username': sa.username,
+                'email': sa.email,
+                'role_display': 'Super Admin',
+                'role': 'admin',
+                'is_active': sa.is_active,
+                'date_joined': sa.date_joined.isoformat() if sa.date_joined else None,
+            })
+
+        return Response({
+            'pharmacies': matrix,
+            'super_admins': admin_list
+        })
 
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
