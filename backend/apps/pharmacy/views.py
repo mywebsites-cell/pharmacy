@@ -325,6 +325,74 @@ class BranchStaffViewSet(viewsets.ModelViewSet):
             'email_error': email_error if not email_sent else None,
         }, status=status.HTTP_201_CREATED)
 
+    @action(detail=True, methods=['post'])
+    def resend_otp(self, request, pk=None):
+        """Owner requests a fresh OTP code for a pending staff member."""
+        from apps.authentication.models import EmailOTP
+        from django.core.mail import send_mail
+        from django.conf import settings
+        from datetime import timedelta
+        import random
+
+        staff = self.get_object()
+        user_pharmacy = getattr(request.user, 'pharmacy', None)
+        is_super_admin = getattr(request.user, 'is_superuser', False) or (
+            hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'SUPER_ADMIN'
+        )
+        is_owner = (
+            is_super_admin or
+            staff.branch.pharmacy.owner == request.user or
+            (user_pharmacy and staff.branch.pharmacy == user_pharmacy) or
+            (hasattr(request.user, 'user_role') and request.user.user_role.role.name == 'PHARMACY_OWNER')
+        )
+        if not is_owner:
+            return Response({'error': 'You do not own this branch.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if staff.status != 'pending':
+            return Response({'error': 'This staff member is already active or revoked.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = staff.invited_email
+        otp_code = f"{random.randint(100000, 999999)}"
+        expiry = timezone.now() + timedelta(minutes=30)
+        EmailOTP.objects.filter(email=email, purpose='STAFF_INVITATION').delete()
+        EmailOTP.objects.create(email=email, otp=otp_code, purpose='STAFF_INVITATION', expires_at=expiry)
+
+        email_body = (
+            f'Hi {staff.invited_name},\n\n'
+            f'Your new activation code for {staff.branch.pharmacy.name} is: {otp_code}\n\n'
+            f'Please share this code with your pharmacy owner to complete your account setup.'
+        )
+
+        email_sent = False
+        try:
+            if getattr(settings, 'RESEND_API_KEY', None):
+                import resend
+                resend.api_key = settings.RESEND_API_KEY
+                resend.Emails.send({
+                    "from": getattr(settings, 'DEFAULT_FROM_EMAIL', 'support@medicly.org'),
+                    "to": [email],
+                    "subject": f'New Activation Code - {staff.branch.pharmacy.name}',
+                    "text": email_body,
+                })
+                email_sent = True
+            else:
+                send_mail(
+                    subject=f'New Activation Code - {staff.branch.pharmacy.name}',
+                    message=email_body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+                email_sent = True
+        except Exception:
+            pass
+
+        return Response({
+            'message': f'New OTP generated for {staff.invited_name}.',
+            'otp_code': otp_code,
+            'email_sent': email_sent
+        })
+
     @action(detail=False, methods=['post'], permission_classes=[AllowAny])
     def accept_invite(self, request):
         """DISABLED — staff no longer self-activate. The Owner must use owner_activate instead."""
