@@ -144,7 +144,7 @@ export const AdminPanel: React.FC = () => {
         api.get('/admin/users/'),
         api.get('/admin/tenant-subscriptions/'),
         api.get('/admin/subscription-plans/'),
-        api.get('/admin/tenant-matrix/').catch(() => api.get('/admin/users/tenant_matrix/')).catch(() => ({ data: null }))
+        api.get('/admin/users/matrix/').catch(() => api.get('/admin/tenant-matrix/')).catch(() => ({ data: null }))
       ]);
       setUsers(usersRes.data.results || usersRes.data || []);
       setTenantSubscriptions(subsRes.data.results || subsRes.data || []);

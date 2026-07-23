@@ -371,6 +371,10 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsSuperAdmin]
 
+    @action(detail=False, methods=['get'])
+    def matrix(self, request):
+        return TenantMatrixView().get(request)
+
     def destroy(self, request, *args, **kwargs):
         user = self.get_object()
         if user == request.user:
